@@ -1,0 +1,53 @@
+digraph {
+	1 [label=File]
+	1 -> 2
+	2 [label=Function]
+	2 -> 3
+	3 [label=FunctionDef]
+	3 -> 4
+	4 [label=CompoundStatement]
+	4 -> 5
+	5 [label=IdentifierDeclStatement]
+	5 -> 6
+	6 [label=IdentifierDecl]
+	6 -> 7
+	7 [label=IdentifierDeclType]
+	6 -> 8
+	8 [label=Identifier]
+	4 -> 9
+	9 [label=ExpressionStatement]
+	9 -> 10
+	10 [label=ShiftExpression]
+	10 -> 11
+	11 [label=Identifier]
+	10 -> 12
+	12 [label=Identifier]
+	4 -> 13
+	13 [label=IfStatement]
+	13 -> 14
+	14 [label=Condition]
+	14 -> 15
+	15 [label=RelationalExpression]
+	15 -> 16
+	16 [label=Identifier]
+	15 -> 17
+	17 [label=PrimaryExpression]
+	13 -> 18
+	18 [label=ExpressionStatement]
+	18 -> 19
+	19 [label=ShiftExpression]
+	19 -> 20
+	20 [label=Identifier]
+	19 -> 21
+	21 [label=ShiftExpression]
+	21 -> 22
+	22 [label=PrimaryExpression]
+	21 -> 23
+	23 [label=Identifier]
+	3 -> 24
+	24 [label=ReturnType]
+	3 -> 25
+	25 [label=Identifier]
+	3 -> 26
+	26 [label=ParameterList]
+}

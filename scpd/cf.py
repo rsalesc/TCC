@@ -3,19 +3,20 @@ import os
 import json
 import pickle
 import random
-from tqdm import tqdm
-import utils
 import time
 import concurrent.futures as concur
+from tqdm import tqdm
 from requests import Request, Session
-from req import Throttler, RequestsPool, send_request, json_send_request
-import source
 from bs4 import BeautifulSoup
+
+from . import source
+from . import utils
+from .req import Throttler, RequestsPool, send_request, json_send_request
 
 MAGICAL_SEED = 42
 CLE_TIMEOUT = 1
 SUBMISSION_COUNT = 10000
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR = os.path.abspath(os.getcwd())
 CODEFORCES_URL = 'http://codeforces.com'
 CODEFORCES_API_URL = 'http://codeforces.com/api'
 CACHE_PATH = os.path.join(CURRENT_DIR, ".cache")
@@ -251,20 +252,3 @@ class FilterProvider():
             return True
 
         return filter_fn
-
-
-if __name__ == "__main__":
-    random.seed(MAGICAL_SEED)
-
-    # participant_ex = ParticipantExtractor(get_cached_rated_list())
-    # participants = participant_ex.extract(500)
-
-    # submissions_ex = BatchSubmissionExtractor(CODEFORCES_POOL,
-    #        participants, count=10000)
-    # submissions = submissions_ex.extract(FilterProvider().filter(), limit=10)
-    # with open("submissions.dat", "wb") as f:
-    # pickle.dump(submissions, f)
-
-    submissions = pickle.load(open("submissions.dat", "rb"))
-    code_ex = DiskCodeExtractor(HTTP_POOL, submissions)
-    code_ex.extract()
