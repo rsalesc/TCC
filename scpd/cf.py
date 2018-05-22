@@ -118,7 +118,8 @@ class Problem():
 
 class Submission():
     def __init__(self, submission):
-        self.authors = submission["author"]["members"]
+        members = submission["author"]["members"]
+        self.authors = list(map(lambda x: x["handle"], members))
         self.time = submission["creationTimeSeconds"]
         self.id = submission["id"]
         self.type = submission["author"]["participantType"]
@@ -228,9 +229,10 @@ class DiskCodeExtractor():
                     with utils.opens(output_path, "w") as f:
                         f.write(r["source"])
                     del future
-                except IOError:
+                except (IOError, json.JSONDecodeError):
                     pass
-            sources.append(CodeforcesSource(submission, path=output_path))
+            if os.path.isfile(output_path):
+                sources.append(CodeforcesSource(submission, path=output_path))
         if self._monitor:
             print("Skipped %d entries..." % (len(futures) - len(sources)))
         return sources
