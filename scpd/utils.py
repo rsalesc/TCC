@@ -5,7 +5,9 @@ import random
 def opens(*args, **kwargs):
     if len(args) == 0:
         raise AssertionError("File name argument should be informed")
-    os.makedirs(os.path.dirname(args[0]), exist_ok=True)
+    dirname = os.path.dirname(args[0])
+    if len(dirname) > 0:
+        os.makedirs(dirname, exist_ok=True)
     return open(*args, **kwargs)
 
 
