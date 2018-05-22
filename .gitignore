@@ -1,6 +1,7 @@
 __pycache__/
 .vscode
 .git
+.cache
 *.pyc
 *.swp
 venv/

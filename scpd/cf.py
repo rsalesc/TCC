@@ -19,7 +19,7 @@ SUBMISSION_COUNT = 10000
 CURRENT_DIR = os.path.abspath(os.getcwd())
 CODEFORCES_URL = 'http://codeforces.com'
 CODEFORCES_API_URL = 'http://codeforces.com/api'
-CACHE_PATH = os.path.join(CURRENT_DIR, ".cache")
+CACHE_PATH = os.path.join(CURRENT_DIR, ".cache/cf")
 RATED_LIST_PATH = os.path.join(CACHE_PATH, "ratedList.json")
 
 
@@ -181,13 +181,19 @@ class BatchSubmissionExtractor():
         if self._monitor:
             as_completed = tqdm(
                 as_completed, total=len(futures), desc='Submission Extraction')
+        failed = 0
         for future in as_completed:
-            r = check_from_api(future.result())
+            try:
+                r = check_from_api(future.result())
+            except json.JSONDecodeError:
+                failed += 1
+                continue
             r = list(filter(filter_fn, r))
             if limit is not None:
                 r = r[:limit]
             for submission in r:
                 submissions.append(Submission(submission))
+        print("Submissions from %d participants skipped..." % failed)
 
         return submissions
 

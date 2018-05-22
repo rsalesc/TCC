@@ -20,13 +20,13 @@ def line_length_statistics(code):
 
 
 def log_tabs(code):
-    """Get ln(no_of_tabs/len(code))."""
-    return math.log(code.count("\t"))
+    """Get ln(no_of_tabs/len(code) + 1)."""
+    return math.log(code.count("\t") + 1)
 
 
 def log_spaces(code):
-    """Get ln(no_of_spaces/len(code))."""
-    return math.log(code.count("\n"))
+    """Get ln(no_of_spaces/len(code) + 1)."""
+    return math.log(code.count("\n") + 1)
 
 
 def whitespace_ratio(code):
@@ -42,7 +42,7 @@ def tab_indent_ratio(code):
     indented_lines = 0
     tab_indented_lines = 0
     for line in lines:
-        if line.startswith(list(INDENT_CHARS)):
+        if line.startswith(tuple(INDENT_CHARS)):
             indented_lines += 1
             if line.startswith("\t"):
                 tab_indented_lines += 1
