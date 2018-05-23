@@ -8,6 +8,7 @@ from scpd import utils
 from scpd.cf import (HTTP_POOL, DiskCodeExtractor, ParticipantExtractor,
                      BatchSubmissionExtractor, CODEFORCES_POOL,
                      get_cached_rated_list, FilterProvider)
+from scpd.metrics import BinaryClassificationMetrics
 from scpd.source import SourceCodePairing
 from scpd.features.base import (BaseFeatureExtractor,
                                 LabelerPairFeatureExtractor)
@@ -17,7 +18,8 @@ SUBMISSION_API_COUNT = 10000
 
 
 class DatasetBuilder():
-    def __init__(self, training_size, test_size, training_file, test_file, submissions_per_user):
+    def __init__(self, training_size, test_size, training_file, test_file,
+                 submissions_per_user):
         self._participant_extractor = ParticipantExtractor(
             get_cached_rated_list())
         self._training_size = training_size
@@ -34,8 +36,8 @@ class DatasetBuilder():
             FilterProvider().filter(), limit=self._submissions_per_user)
 
     def extract(self, force=False):
-        should_fetch = (force or not os.path.isfile(
-            self._training_file) or not os.path.isfile(self._test_file))
+        should_fetch = (force or not os.path.isfile(self._training_file)
+                        or not os.path.isfile(self._test_file))
         training_submissions = None
         test_submissions = None
 
@@ -66,20 +68,24 @@ def make_pairs(sources, k1, k2):
     pair_maker = SourceCodePairing()
     return pair_maker.make_pairs(sources, k1=k1, k2=k2)
 
+
 def extract_features(pairs):
     extractor = LabelerPairFeatureExtractor(BaseFeatureExtractor())
     return extractor.extract(pairs)
 
+
 def split_label(df):
-    if not "label" in df:
+    if "label" not in df:
         return df, None
     feature_matrix = df.drop(columns=["label"]).values
     label_array = df["label"].values
     return feature_matrix, label_array
 
+
 class RandomForestMethod():
     def __init__(self):
-        self._classifier = RandomForestClassifier(n_estimators=100)
+        self._classifier = RandomForestClassifier(
+            n_estimators=100, random_state=MAGICAL_SEED)
 
     def fit(self, df):
         feature_matrix, label_array = split_label(df)
@@ -90,22 +96,31 @@ class RandomForestMethod():
         label_pred = self._classifier.predict(feature_matrix)
         return label_pred, label_array
 
+
 if __name__ == "__main__":
     random.seed(MAGICAL_SEED)
 
-    builder = DatasetBuilder(training_size=500, test_size=75, training_file="submissions_training.dat",
-                             test_file="submissions_test.dat", submissions_per_user=10)
+    builder = DatasetBuilder(
+        training_size=500,
+        test_size=75,
+        training_file="submissions_training.dat",
+        test_file="submissions_test.dat",
+        submissions_per_user=10)
     training_submissions, test_submissions = builder.extract()
-    training_sources, test_sources = extract_codes(training_submissions), extract_codes(test_submissions)
+    training_sources, test_sources = extract_codes(
+        training_submissions), extract_codes(test_submissions)
 
-    random.seed(MAGICAL_SEED*2)
+    random.seed(MAGICAL_SEED * 2)
     training_pairs = make_pairs(training_sources, k1=10000, k2=10000)
     test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
 
-    training_features, test_features = extract_features(training_pairs), extract_features(test_pairs)
+    training_features, test_features = extract_features(
+        training_pairs), extract_features(test_pairs)
 
+    # Random Forest
     random_forest = RandomForestMethod()
     random_forest.fit(training_features)
     test_pred, test_label = random_forest.predict(test_features)
 
-    print(np.sum(1 - (test_pred ^ test_label)) / len(test_label))
+    metrics = BinaryClassificationMetrics(test_pred, test_label)
+    print(metrics)
