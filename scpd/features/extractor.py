@@ -1,12 +1,8 @@
 import pandas as pd
 from abc import ABCMeta, abstractmethod
 
-from ..source import SourceCode
 
-
-class FeatureExtractor():
-    __metaclass__ = ABCMeta
-
+class FeatureExtractor(metaclass=ABCMeta):
     def extract_header(self):
         return None
 

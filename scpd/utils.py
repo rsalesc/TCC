@@ -33,6 +33,14 @@ def accumulator_sample(acc, K):
         if ptr >= K:
             break
         while ptr < K and indices[ptr] < acc[i]:
-            res.append((i-1, indices[ptr] - acc[i-1]))
+            res.append((i - 1, indices[ptr] - acc[i - 1]))
             ptr += 1
     return res
+
+
+def split_label(df):
+    if "label" not in df:
+        return df, None
+    feature_matrix = df.drop(columns=["label"]).values
+    label_array = df["label"].values
+    return feature_matrix, label_array

@@ -1,5 +1,9 @@
-import numpy as np
 from .utils import accumulator_sample
+
+
+def make_pairs(sources, k1, k2):
+    pair_maker = SourceCodePairing()
+    return pair_maker.make_pairs(sources, k1=k1, k2=k2)
 
 
 class SourceCode():
