@@ -14,9 +14,9 @@ class Row():
 
 class NamedRow(Row):
     def __init__(self, row, names, name_dict=None):
+        super().__init__(self)
         if len(row) != len(names):
             raise AssertionError("row length and header length mismatch")
-        self._row = row
         self._names = names
         if name_dict is None:
             name_dict = {}

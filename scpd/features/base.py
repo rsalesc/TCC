@@ -4,7 +4,7 @@ from .extractor import FeatureExtractor
 
 class BaseFeatureExtractor(FeatureExtractor):
     def __init__(self):
-        FeatureExtractor.__init__(self)
+        super().__init__(self)
 
     def extract_header(self):
         return [
@@ -31,6 +31,7 @@ class BaseFeatureExtractor(FeatureExtractor):
 
 class PairFeatureExtractor(FeatureExtractor):
     def __init__(self, extractor):
+        super().__init__(self)
         self._extractor = extractor
 
     def _append_id(self, seq, identifier):
@@ -53,7 +54,7 @@ class PairFeatureExtractor(FeatureExtractor):
 
 class LabelerPairFeatureExtractor(PairFeatureExtractor):
     def __init__(self, extractor):
-        PairFeatureExtractor.__init__(self, extractor)
+        super().__init__(self, extractor)
 
     def extract_header(self):
         header = PairFeatureExtractor.extract_header(self)

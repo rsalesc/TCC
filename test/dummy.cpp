@@ -1,16 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-#define rp() for(int i = 0; i < 10; i++)
+#define rp() for(int i = 0; i < 5; i++)
 
-int main() {
-  int i;
-  cin >> i;
-  {
-    rp() {
-      int x;
-    }
+int main() // rapaz que coisa louca 
+{
+  rp() {
+    cout << 5 << endl;
   }
-  if(i < 5)
-    cout << "Ola mundo" << endl;
 }

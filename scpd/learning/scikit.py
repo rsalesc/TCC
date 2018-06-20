@@ -31,7 +31,7 @@ class DataframeFitter():
 
 class RandomForestFitter(DataframeFitter):
     def __init__(self, folder=None, random_state=None, *args, **kwargs):
-        DataframeFitter.__init__(
+        super().__init__(
             self, folder=folder, random_state=random_state, *args, **kwargs)
         self._classifier = RandomForestClassifier(
             random_state=random_state, **kwargs)
@@ -42,7 +42,7 @@ class RandomForestFitter(DataframeFitter):
 
 class XGBoostFitter(DataframeFitter):
     def __init__(self, folder=None, random_state=None, *args, **kwargs):
-        DataframeFitter.__init__(
+        super().__init__(
             self, folder=folder, random_state=random_state, *args, **kwargs)
         self._classifier = XGBClassifier(random_state=random_state, **kwargs)
 
