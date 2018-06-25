@@ -14,40 +14,28 @@ digraph {
 	7 [label=IdentifierDeclType]
 	6 -> 8
 	8 [label=Identifier]
-	4 -> 9
-	9 [label=ExpressionStatement]
+	6 -> 9
+	9 [label=AssignmentExpression]
 	9 -> 10
-	10 [label=ShiftExpression]
-	10 -> 11
-	11 [label=Identifier]
-	10 -> 12
-	12 [label=Identifier]
-	4 -> 13
-	13 [label=IfStatement]
-	13 -> 14
-	14 [label=Condition]
+	10 [label=Identifier]
+	9 -> 11
+	11 [label=PrimaryExpression]
+	3 -> 12
+	12 [label=ReturnType]
+	3 -> 13
+	13 [label=Identifier]
+	3 -> 14
+	14 [label=ParameterList]
 	14 -> 15
-	15 [label=RelationalExpression]
+	15 [label=Parameter]
 	15 -> 16
-	16 [label=Identifier]
+	16 [label=ParameterType]
 	15 -> 17
-	17 [label=PrimaryExpression]
-	13 -> 18
-	18 [label=ExpressionStatement]
+	17 [label=Identifier]
+	14 -> 18
+	18 [label=Parameter]
 	18 -> 19
-	19 [label=ShiftExpression]
-	19 -> 20
+	19 [label=ParameterType]
+	18 -> 20
 	20 [label=Identifier]
-	19 -> 21
-	21 [label=ShiftExpression]
-	21 -> 22
-	22 [label=PrimaryExpression]
-	21 -> 23
-	23 [label=Identifier]
-	3 -> 24
-	24 [label=ReturnType]
-	3 -> 25
-	25 [label=Identifier]
-	3 -> 26
-	26 [label=ParameterList]
 }

@@ -1,37 +1,44 @@
+from contextlib import contextmanager
+
 from . import helpers as fh
-from .extractor import FeatureExtractor
+from ..source import prefetch
+from .extractor import FeatureExtractor, BatchFeatureExtractor
 
 
 class BaseFeatureExtractor(FeatureExtractor):
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
+
+    def helpers(self):
+        return [
+            fh.line_length_statistics,
+            fh.params_length_statistics,
+            fh.log_tabs,
+            fh.log_spaces,
+            fh.whitespace_ratio,
+            fh.tab_indent_ratio,
+            fh.log_empty_lines,
+            fh.brace_same_line_ratio,
+            fh.log_functions,
+            fh.log_decls
+        ]
 
     def extract_header(self):
-        return [
-            "avg_line_length",
-            "stddev_line_length",
-            "log_tabs",
-            "log_spaces",
-            "whitespace_ratio",
-            "tab_indent_ratio",
-        ]   
+        header = []
+        for helper in self.helpers():
+            header.extend(helper.__features__)
+        return header
 
     def extract_row(self, source):
         res = []
-        code = source.fetch()
-
-        res.extend(fh.line_length_statistics(code))
-        res.append(fh.log_tabs(code))
-        res.append(fh.log_spaces(code))
-        res.append(fh.whitespace_ratio(code))
-        res.append(fh.tab_indent_ratio(code))
-
+        for helper in self.helpers():
+            res.extend(helper(source))
         return res
 
 
 class PairFeatureExtractor(FeatureExtractor):
     def __init__(self, extractor):
-        super().__init__(self)
+        super().__init__()
         self._extractor = extractor
 
     def _append_id(self, seq, identifier):
@@ -54,7 +61,7 @@ class PairFeatureExtractor(FeatureExtractor):
 
 class LabelerPairFeatureExtractor(PairFeatureExtractor):
     def __init__(self, extractor):
-        super().__init__(self, extractor)
+        super().__init__(extractor)
 
     def extract_header(self):
         header = PairFeatureExtractor.extract_header(self)
@@ -65,3 +72,17 @@ class LabelerPairFeatureExtractor(PairFeatureExtractor):
         row = PairFeatureExtractor.extract_row(self, sources)
         row.append(0 if sources[0].author() == sources[1].author() else 1)
         return row
+
+
+class PrefetchBatchFeatureExtractor(BatchFeatureExtractor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @contextmanager
+    def bootstrap(self, objs):
+        filtered_objs = map(lambda x: (x) if not isinstance(x, tuple) else x,
+                            objs)
+        flattened_objs = sum(filtered_objs, ())
+        with prefetch(flattened_objs) as _:
+            #print(len(list(filter(lambda x: x._ast is None, flattened_objs))))
+            yield objs

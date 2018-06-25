@@ -70,7 +70,7 @@ class Node():
 
 class Graph():
     def __init__(self, nodes=[], edges=None):
-        self._nodes = nodes
+        self._nodes = list(nodes)
         self._build_node_dict()
         if edges is not None:
             self.add_edges(edges)
@@ -129,30 +129,45 @@ class CsvGraphParser():
         self._end_field = end_field
         self._type_field = type_field
 
-    def parse(self):
-        node_header, node_rows = self._node_parser.parse({
-            self._id_field: "id",
-        })
-        edge_header, edge_rows = self._edge_parser.parse({
+    def node_replacers(self):
+        return {
+            self._id_field: "id"
+        }
+    
+    def edge_replacers(self):
+        return {
             self._start_field: "start",
             self._end_field: "end",
             self._type_field: "type"
-        })
-        graph = Graph()
+        }
 
+    def cleanup(self):
+        self._node_parser.close()
+        self._edge_parser.close()
+
+    def check(self):
+        node_header = self._node_parser.parse_header(self.node_replacers())
+        edge_header = self._edge_parser.parse_header(self.edge_replacers())
         if "id" not in node_header:
             raise AssertionError("header of node file should have an id field")
-
-        for node_row in node_rows:
-            node = Node(row=node_row)
-            graph.add_node(node)
-
         if "start" not in edge_header:
             raise AssertionError(
                 "header of edge file should have a start field")
         if "end" not in edge_header:
             raise AssertionError("header of edge file should have a end field")
 
+
+    def parse(self):
+        self.check()
+
+        node_header, node_rows = self._node_parser.parse(self.node_replacers())
+        edge_header, edge_rows = self._edge_parser.parse(self.edge_replacers())
+        graph = Graph()
+       
+        for i, node_row in enumerate(node_rows):
+            node = Node(row=node_row)
+            graph.add_node(node)
+ 
         for edge_row in edge_rows:
             start = edge_row.get("start")
             end = edge_row.get("end")

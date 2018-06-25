@@ -5,7 +5,8 @@ from abc import ABCMeta, abstractmethod
 from . import utils
 from .cf import (ParticipantExtractor, get_cached_rated_list,
                  BatchSubmissionExtractor, CODEFORCES_POOL, FilterProvider,
-                 DiskCodeExtractor, HTTP_POOL)
+                 DiskCodeExtractor, HTTP_POOL, PROCESSING_POOL)
+from .joern.parser import BatchJoernParser
 
 
 class DatasetBuilder(metaclass=ABCMeta):
@@ -15,16 +16,28 @@ class DatasetBuilder(metaclass=ABCMeta):
         raise NotImplementedError()
 
 
-def extract_cf_codes(submissions):
-    code_extractor = DiskCodeExtractor(HTTP_POOL, submissions)
+def extract_cf_codes(submissions, download):
+    # maybe add force flag?
+    code_extractor = DiskCodeExtractor(
+        HTTP_POOL, submissions, download=download)
     return code_extractor.extract()
+
+
+def extract_joern_codes(sources, force=False):
+    parser = BatchJoernParser(PROCESSING_POOL, sources)
+    return parser.parse(force=force)
 
 
 class CodeforcesDatasetBuilder():
     SUBMISSION_API_COUNT = 10000
 
-    def __init__(self, training_size, test_size, training_file, test_file,
-                 submissions_per_user):
+    def __init__(self,
+                 training_size,
+                 test_size,
+                 training_file,
+                 test_file,
+                 submissions_per_user,
+                 download=True):
         self._participant_extractor = ParticipantExtractor(
             get_cached_rated_list())
         self._training_size = training_size
@@ -32,6 +45,7 @@ class CodeforcesDatasetBuilder():
         self._training_file = training_file
         self._test_file = test_file
         self._submissions_per_user = submissions_per_user
+        self._download = download
 
     def fetch_dataset(self, K):
         participants = self._participant_extractor.extract(K)
@@ -65,9 +79,13 @@ class CodeforcesDatasetBuilder():
 
         return training_submissions, test_submissions
 
-    def extract(self, force=False):
+    def extract(self, force=False, force_joern=False):
         training_submissions, test_submissions = self.extract_submissions(
             force)
 
-        return extract_cf_codes(training_submissions), extract_cf_codes(
-            test_submissions)
+        training_sources, test_sources = extract_cf_codes(
+            training_submissions, self._download), extract_cf_codes(test_submissions, self._download)
+
+        return extract_joern_codes(training_sources,
+                                   force_joern), extract_joern_codes(
+                                       test_sources, force_joern)

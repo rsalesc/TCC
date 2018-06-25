@@ -14,7 +14,7 @@ class Row():
 
 class NamedRow(Row):
     def __init__(self, row, names, name_dict=None):
-        super().__init__(self)
+        super().__init__(row)
         if len(row) != len(names):
             raise AssertionError("row length and header length mismatch")
         self._names = names
@@ -48,6 +48,11 @@ class CsvParser():
         self._quotechar = quotechar
         self._header = header
 
+    def close(self):
+        if self._f is not None:
+            self._f.close()
+            self._f = None
+
     def _read_file(self, f):
         """Returns the header and an iterable for rows."""
         rows = csv.reader(
@@ -57,13 +62,29 @@ class CsvParser():
             return header, rows
         return [], rows
 
-    def _parse_list(self):
+    def parse_list(self):
         if self._f is not None:
+            self._f.seek(0)
             return self._read_file(self._f)
         raise NotImplementedError()
 
+    # duplicate code
+    def parse_header(self, replacers={}):
+        header, _ = self.parse_list()
+        if self._header:
+            header_dict = {}
+            for index, name in enumerate(header):
+                if name in replacers:
+                    name = replacers[name]
+                    header[index] = name
+                header_dict[name] = index
+            if len(header_dict) != len(header):
+                raise AssertionError("column names should be unique")
+            return header
+        return None
+
     def parse(self, replacers={}):
-        header, rows = self._parse_list()
+        header, rows = self.parse_list()
         if self._header:
             header_dict = {}
             for index, name in enumerate(header):

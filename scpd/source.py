@@ -1,9 +1,25 @@
+import traceback
+from contextlib import contextmanager
+
 from .utils import accumulator_sample
 
 
 def make_pairs(sources, k1, k2):
     pair_maker = SourceCodePairing()
     return pair_maker.make_pairs(sources, k1=k1, k2=k2)
+
+
+@contextmanager
+def prefetch(sources):
+    try:
+        for source in sources:
+            source.prefetch()
+        yield sources
+    except Exception as e:
+        print(traceback.format_exc())
+    finally:
+        for source in sources:
+            source.unfetch()
 
 
 class SourceCode():
@@ -15,6 +31,9 @@ class SourceCode():
     def author(self):
         return self._author
 
+    def path(self):
+        return self._path
+
     def fetch(self):
         if self._code is not None:
             return self._code
@@ -22,6 +41,14 @@ class SourceCode():
             return open(self._path).read()
         else:
             raise AssertionError('No source code')
+
+    def prefetch(self):
+        if self._code is None:
+            self._code = self.fetch()
+
+    def unfetch(self):
+        if self._code is not None and self._path is not None:
+            self._code = None
 
     def __str__(self):
         sec = self._code if self._code is not None else self._path

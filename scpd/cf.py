@@ -21,11 +21,27 @@ CODEFORCES_URL = 'http://codeforces.com'
 CODEFORCES_API_URL = 'http://codeforces.com/api'
 CACHE_PATH = os.path.join(CURRENT_DIR, ".cache/cf")
 RATED_LIST_PATH = os.path.join(CACHE_PATH, "ratedList.json")
+DESKTOP_AGENTS = [
+    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/602.2.14 (KHTML, like Gecko) Version/10.0.1 Safari/602.2.14',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'
+]
 
 
 def get_csrf_token(s):
     soup = BeautifulSoup(s.get(CODEFORCES_URL).content, "lxml")
-    token = soup.find("meta", dict(name='X-Csrf-Token'))['content']
+    meta = soup.find("meta", dict(name='X-Csrf-Token'))
+    if meta is None:
+        raise AssertionError(
+            "Couldn't find X-Csrf-Token in Codeforces main page.")
+    token = meta['content']
     return token
 
 
@@ -92,7 +108,7 @@ def printer(resp):
 CODEFORCES_POOL = RequestsPool(
     4, throttler=Throttler(3.5), session=Session(), sender=cf_send_request)
 HTTP_POOL = RequestsPool(
-    10, throttler=Throttler(7), session=Session(), sender=json_send_request)
+    2, throttler=Throttler(1), session=Session(), sender=json_send_request)
 PROCESSING_POOL = concur.ThreadPoolExecutor(max_workers=4)
 CSRF_TOKEN = get_csrf_token(HTTP_POOL._session)
 
@@ -132,8 +148,12 @@ class Submission():
 
     def code_request(self):
         data = {'submissionId': self.id, 'csrf_token': CSRF_TOKEN}
+        headers = {'User-Agent': random.choice(DESKTOP_AGENTS)}
         return Request(
-            'POST', url="%s/data/submitSource" % CODEFORCES_URL, data=data)
+            'POST',
+            url="%s/data/submitSource" % CODEFORCES_URL,
+            data=data,
+            headers=headers)
 
 
 class CodeforcesSource(source.SourceCode):
@@ -185,7 +205,7 @@ class BatchSubmissionExtractor():
         failed = 0
         for future in as_completed:
             try:
-                r = check_from_api(future.result())
+                r = check_from_api(future.result(timeout=5))
             except json.JSONDecodeError:
                 failed += 1
                 continue
@@ -200,20 +220,23 @@ class BatchSubmissionExtractor():
 
 
 class DiskCodeExtractor():
-    def __init__(self, pool, submissions, monitor=True):
+    def __init__(self, pool, submissions, monitor=True, download=True):
         self._pool = pool
         self._submissions = submissions
         self._monitor = monitor
+        self._download = download
 
     def extract(self):
         futures = []
         for submission in self._submissions:
             output_path = get_cached_json(str(submission.id))
-            if os.path.isfile(output_path):
+            if os.path.isfile(output_path) or not self._download:
                 futures.append(None)
             else:
                 futures.append(self._pool.submit(submission.code_request()))
 
+        fulfilled = 0
+        new_requests = len(list(filter(lambda x: x is not None, futures)))
         sources = []
         enumerated = enumerate(futures)
         if self._monitor:
@@ -221,20 +244,26 @@ class DiskCodeExtractor():
                 enumerated, total=len(futures), desc='Code Extraction')
         for i, future in enumerated:
             # try/catch?
+            if self._monitor:
+                enumerated.set_postfix(
+                    skipped="{}/{}".format(fulfilled, new_requests))
             submission = self._submissions[i]
             output_path = get_cached_json(str(submission.id))
             if future is not None:
                 try:
-                    r = future.result().json()
+                    r = future.result(timeout=5)
+                    r = r.json()
                     with utils.opens(output_path, "w") as f:
                         f.write(r["source"])
                     del future
-                except (IOError, json.JSONDecodeError):
+                except (IOError, json.JSONDecodeError) as e:
                     pass
             if os.path.isfile(output_path):
                 sources.append(CodeforcesSource(submission, path=output_path))
+                if future is not None:
+                    fulfilled += 1
         if self._monitor:
-            print("Skipped %d entries..." % (len(futures) - len(sources)))
+            print("Skipped {} entries...".format(len(futures) - len(sources)))
         return sources
 
 

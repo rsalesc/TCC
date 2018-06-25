@@ -3,6 +3,12 @@ from . import graph
 from .visitor import Visitable, TreeVisitor
 
 AST_EDGES = "IS_FUNCTION_OF_AST IS_FILE_OF IS_AST_PARENT".split()
+LOCATION_CHAR = ":"
+
+
+class Location:
+    def __init__(self, s):
+        self.line, _, self.start, self.end = s.split(LOCATION_CHAR)
 
 
 class TreeNode(graph.Node, Visitable):
@@ -15,7 +21,7 @@ class TreeNode(graph.Node, Visitable):
         graph.Node.__init__(self, identifier=identifier, row=row)
         Visitable.__init__(self)
         self._parent = parent
-        self._children = children
+        self._children = list(children)
         self._type = kind if kind is not None else row.get("type")
 
     def accept(self, visitor):
@@ -42,6 +48,11 @@ class TreeNode(graph.Node, Visitable):
                 return child
         return None
 
+    def location(self):
+        if not self._row.has("location"):
+            return None
+        return Location(self._row.get("location"))
+
 
 class GraphvizVisitor(TreeVisitor):
     def __init__(self):
@@ -57,7 +68,9 @@ class GraphvizVisitor(TreeVisitor):
         return self._graph
 
 
-def to_ast(root, parent=None, seen={}):
+def to_ast(root, parent=None, seen=None):
+    if seen is None:
+        seen = {}
     if root.id() in seen:
         raise AssertionError("ast edges induce cycles, not a tree")
     seen[root.id()] = True

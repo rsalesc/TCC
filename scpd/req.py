@@ -2,6 +2,7 @@
 import time
 import threading
 import requests
+import json
 import concurrent.futures as concur
 
 ONE_SECOND = 1
@@ -29,7 +30,7 @@ class Throttler:
                     return False
                 needs = (consumed - self._capacity) / self._qps
                 time.sleep(needs)
-            self._capacity -= 1.0
+            self._capacity -= consumed
         return True
 
 
@@ -41,14 +42,14 @@ def send_request(req, session=None):
 
 
 def json_send_request(req, session=None):
-    for _ in range(10):
+    for _ in range(3):
         try:
             r = send_request(req, session)
             r.json()
             return r
-        except IOError:
+        except (IOError, json.JSONDecodeError):
             time.sleep(ONE_SECOND)
-    raise IOError("Exceeded 10 tries")
+    raise IOError("Exceeded 3 tries")
 
 
 class RequestsPool:
@@ -62,14 +63,16 @@ class RequestsPool:
         self._sender = sender
 
     def submit(self, req, fn=None):
-        if self._throttler is not None:
-            self._throttler.throttle()
+        def do():
+            if self._throttler is not None:
+                self._throttler.throttle()
+            return self._sender(req, self._session)
 
         def release(future):
             if fn is not None:
                 fn(future.result())
 
-        f = self._executor.submit(self._sender, req, self._session)
+        f = self._executor.submit(do)
         f.add_done_callback(release)
         return f
 

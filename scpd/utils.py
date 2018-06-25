@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 
 
 def opens(*args, **kwargs):
@@ -10,6 +11,11 @@ def opens(*args, **kwargs):
         os.makedirs(dirname, exist_ok=True)
     return open(*args, **kwargs)
 
+def copies(src, dst):
+    dirname = os.path.dirname(dst)
+    if len(dirname) > 0:
+        os.makedirs(dirname, exist_ok=True)
+    shutil.copyfile(src, dst)
 
 def sample_list(L, K):
     if K > len(L):
@@ -44,3 +50,17 @@ def split_label(df):
     feature_matrix = df.drop(columns=["label"]).values
     label_array = df["label"].values
     return feature_matrix, label_array
+
+
+def list_batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+
+def isiterable(iterable):
+    try:
+        iter(iterable)
+        return True
+    except TypeError:
+        return False
