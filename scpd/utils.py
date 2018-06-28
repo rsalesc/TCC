@@ -12,11 +12,13 @@ def opens(*args, **kwargs):
         os.makedirs(dirname, exist_ok=True)
     return open(*args, **kwargs)
 
+
 def copies(src, dst):
     dirname = os.path.dirname(dst)
     if len(dirname) > 0:
         os.makedirs(dirname, exist_ok=True)
     shutil.copyfile(src, dst)
+
 
 def sample_list(L, K):
     if K > len(L):
@@ -67,3 +69,69 @@ def isiterable(iterable):
         return True
     except TypeError:
         return False
+
+
+class ObjectPairing():
+    def diff_class(self, obj1, obj2):
+        return self.get_class(obj1) != self.get_class(obj2)
+
+    def get_class(self, obj):
+        return obj.author()
+
+    def _build_intervals(self, sources):
+        self._intervals = {}
+        last = 0
+        for i in range(len(sources)):
+            if (i + 1 == len(sources)
+                    or self.diff_class(sources[i], sources[i + 1])):
+                self._intervals[self.get_class(sources[i])] = (last, i + 1)
+                last = i + 1
+
+    def _get_equal_pairs(self, sources, K):
+        acc = [0]
+        authors = []
+        for author, interval in self._intervals.items():
+            n = interval[1] - interval[0]
+            acc.append(acc[-1] + n * n)
+            authors.append(author)
+
+        samples = accumulator_sample(acc, K)
+        res = []
+        for i, rem in samples:
+            interval = self._intervals[authors[i]]
+            n = interval[1] - interval[0]
+            a = rem // n + interval[0]
+            b = rem % n + interval[0]
+            res.append((sources[a], sources[b]))
+        return res
+
+    def _get_different_pairs(self, sources, K):
+        q = len(sources)
+        acc = [0]
+        authors = []
+        for author, interval in self._intervals.items():
+            n = interval[1] - interval[0]
+            acc.append(acc[-1] + n * (q - n))
+            authors.append(author)
+            if q - n == 0:
+                raise AssertionError(
+                    'sources should have at least two classes')
+
+        samples = accumulator_sample(acc, K)
+        res = []
+        for i, rem in samples:
+            interval = self._intervals[authors[i]]
+            n = interval[1] - interval[0]
+            a = rem // (q - n) + interval[0]
+            b = rem % (q - n)
+            if b >= interval[0]:
+                b += interval[1] - interval[0]
+            res.append((sources[a], sources[b]))
+        return res
+
+    def make_pairs(self, objs, k1, k2):
+        self._build_intervals(objs)
+        res = []
+        res.extend(self._get_equal_pairs(objs, k1))
+        res.extend(self._get_different_pairs(objs, k2))
+        return res

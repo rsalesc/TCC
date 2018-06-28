@@ -2,11 +2,13 @@ import argparse
 import pandas as pd
 import numpy as np
 import random
-from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold
 from sklearn.decomposition import PCA
 
 from scpd import source
+from scpd.utils import ObjectPairing
+from scpd.tf import mlp
 from scpd.features import (LabelerPairFeatureExtractor, BaseFeatureExtractor,
                            PrefetchBatchFeatureExtractor,
                            SmartPairFeatureExtractor)
@@ -20,26 +22,36 @@ SUBMISSION_API_COUNT = 10000
 LEARNING_METHODS = ["xgb", "random"]
 TRAINING_PKL = "training.pkl.gz"
 TEST_PKL = "test.pkl.gz"
+AUTHOR_COL = "author"
 
 
-def extract_features(pairs):
+def extract_features(sources):
     base_extractor = BaseFeatureExtractor()
     prefetch_extractor = PrefetchBatchFeatureExtractor(
         base_extractor, monitor=True)
-    pair_extractor = SmartPairFeatureExtractor(prefetch_extractor)
-    labeler = LabelerPairFeatureExtractor(pair_extractor)
-    return labeler.extract(pairs)
+    return prefetch_extractor.extract(sources)
+
+
+class RowPairing(ObjectPairing):
+    def get_class(self, obj):
+        return obj[-1]
+
+
+def make_pairs(features, k1, k2):
+    pairing = RowPairing()
+    pairs = pairing.make_pairs(features.tolist(), k1=k1, k2=k2)
 
 
 def apply_preprocessing(args, training_features, test_features):
-    training_labels = training_features["label"]
-    test_labels = test_features["label"]
-    training_features.drop("label", axis=1, inplace=True)
-    test_features.drop("label", axis=1, inplace=True)
+    training_authors = training_features[AUTHOR_COL]
+    test_authors = test_features[AUTHOR_COL]
+    training_features.drop(AUTHOR_COL, axis=1, inplace=True)
+    test_features.drop(AUTHOR_COL, axis=1, inplace=True)
 
     # turn dataframe into ndarray
-    training_features = preprocessing.scale(training_features)
-    test_features = preprocessing.scale(test_features)
+    scaler = StandardScaler()
+    training_features = scaler.fit_transform(training_features)
+    test_features = scaler.transform(test_features)
 
     if args.pca is not None:
         comps = min(args.pca, training_features.shape[1])
@@ -49,7 +61,8 @@ def apply_preprocessing(args, training_features, test_features):
 
         print(pca.explained_variance_ratio_)
 
-    return training_features, test_features, training_labels, test_labels
+    training_features = np.c_[training_features, training_authors]
+    test_features = np.c_[test_features, test_authors]
 
 
 def get_label_distribution(labels):
@@ -59,7 +72,6 @@ def get_label_distribution(labels):
 
 def do_nn(args):
     random.seed(MAGICAL_SEED)
-    train = args.train
 
     training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
     test_features = pd.read_pickle(TEST_PKL, compression="infer")
@@ -69,15 +81,22 @@ def do_nn(args):
     training_prob_labels = get_label_distribution(training_labels)
     test_prob_labels = get_label_distribution(test_labels)
 
+    mlp.execute(
+        args,
+        training_features=training_features,
+        test_features=test_features,
+        training_labels=training_prob_labels,
+        test_labels=test_prob_labels)
+
 
 def run_main(args):
     random.seed(MAGICAL_SEED)
     method = args.method
 
-    training_features = pd.read_pickle("training.pkl.gz", compression="infer")
-    test_features = pd.read_pickle("test.pkl.gz", compression="infer")
-    (training_features, test_features, training_labels,
-     test_labels) = apply_preprocessing(args, training_features, test_features)
+    training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
+    test_features = pd.read_pickle(TEST_PKL, compression="infer")
+    tÎraining_features, test_features = apply_preprocessing(
+        args, training_features, test_features)
 
     folder = StratifiedKFold(
         n_splits=7, random_state=MAGICAL_SEED, shuffle=True)
@@ -120,14 +139,14 @@ def build_main_dataset(args):
     training_sources, test_sources = builder.extract()
 
     random.seed(MAGICAL_SEED * 2)
-    training_pairs = source.make_pairs(training_sources, k1=10000, k2=10000)
-    test_pairs = source.make_pairs(test_sources, k1=1000, k2=1000)
+    # training_pairs = source.make_pairs(training_sources, k1=10000, k2=10000)
+    # test_pairs = source.make_pairs(test_sources, k1=1000, k2=1000)
 
-    training_features = extract_features(training_pairs)
-    test_features = extract_features(test_pairs)
+    training_features = extract_features(training_sources)
+    test_features = extract_features(test_sources)
 
-    training_features.to_pickle("training.pkl.gz", compression="infer")
-    test_features.to_pickle("test.pkl.gz", compression="infer")
+    training_features.to_pickle(TRAINING_PKL, compression="infer")
+    test_features.to_pickle(TEST_PKL, compression="infer")
 
     print(test_features.head())
     print(test_features.describe())

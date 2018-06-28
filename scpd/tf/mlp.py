@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 from .data import RandomBatchProvider
 from .model import SiamesisMLPModel
@@ -11,7 +12,8 @@ class SiamesisMLPTrainer(IterativeTrainer):
 
     def train_step(self):
         x, y = self._provider.next_batch(self._batch_size)
-        feed_dict = {}
+        x1, x2, *_ = np.hsplit(x, 2)
+        feed_dict = {self._model.x1: x1, self._model.x2: x2, self._model.y: y}
         _, loss, acc = self._sess.run(
             [
                 self._model.optimize, self._model.cross_entropy,
@@ -27,11 +29,12 @@ def execute(args,
             training_labels=None,
             test_labels=None):
     with tf.Session() as sess:
-        input_size = training_features.shape[1]
+        # improve this
+        input_size = training_features.shape[1] // 2
         model = SiamesisMLPModel(input_size, 10)
         model.compile()
         if args.train:
-            provider = RandomBatchProvider(training_features, test_features)
+            provider = RandomBatchProvider(training_features, training_labels)
             trainer = SiamesisMLPTrainer(
                 sess,
                 model,

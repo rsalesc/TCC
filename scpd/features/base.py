@@ -31,7 +31,7 @@ class BaseFeatureExtractor(HelperBasedFeatureExtractor):
 
     def helpers(self):
         return [
-            fh.line_length_statistics, fh.params_length_statistics,
+            fh.author, fh.line_length_statistics, fh.params_length_statistics,
             fh.log_tabs, fh.log_spaces, fh.whitespace_ratio,
             fh.tab_indent_ratio, fh.log_empty_lines, fh.brace_same_line_ratio,
             fh.log_functions, fh.log_decls, fh.log_ternaries,

@@ -50,6 +50,11 @@ def unnamed_feature(func):
     return feature(func.__name__)(func)
 
 
+@unnamed_feature
+def author(source):
+    return source.author()
+
+
 @feature("avg_line_length", "stddev_line_length")
 def line_length_statistics(source):
     """Avg and stddev of line length across the code."""
