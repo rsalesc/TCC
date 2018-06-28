@@ -9,7 +9,7 @@ class SiamesisMLPModel(BaseModel):
         self._input_size = input_size
         self._hidden_size = hidden_size
 
-    def build_model(self):
+    def compile(self):
         self.x1 = tf.placeholder(tf.float32, shape=[None, self._input_size])
         self.x2 = tf.placeholder(tf.float32, shape=[None, self._input_size])
         self.y = tf.placeholder(tf.float32, shape=[None, 2])

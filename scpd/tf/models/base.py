@@ -16,5 +16,5 @@ class BaseModel:
     def epoch(self, sess):
         return self._current_epoch_tensor.eval(sess)
 
-    def build_model(self):
+    def compile(self):
         raise NotImplementedError()

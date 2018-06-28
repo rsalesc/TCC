@@ -1,5 +1,6 @@
 import argparse
 import pandas as pd
+import numpy as np
 import random
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedKFold
@@ -51,6 +52,11 @@ def apply_preprocessing(args, training_features, test_features):
     return training_features, test_features, training_labels, test_labels
 
 
+def get_label_distribution(labels):
+    neg_labels = 1 - labels
+    return np.stack((neg_labels, labels), axis=1)
+
+
 def do_nn(args):
     random.seed(MAGICAL_SEED)
     train = args.train
@@ -59,6 +65,9 @@ def do_nn(args):
     test_features = pd.read_pickle(TEST_PKL, compression="infer")
     (training_features, test_features, training_labels,
      test_labels) = apply_preprocessing(args, training_features, test_features)
+
+    training_prob_labels = get_label_distribution(training_labels)
+    test_prob_labels = get_label_distribution(test_labels)
 
 
 def run_main(args):
