@@ -1,3 +1,3 @@
 from .base import (BaseFeatureExtractor, LabelerPairFeatureExtractor,
-                   PrefetchBatchFeatureExtractor)
+                   PrefetchBatchFeatureExtractor, SmartPairFeatureExtractor)
 from .extractor import (FeatureExtractor, BatchFeatureExtractor)

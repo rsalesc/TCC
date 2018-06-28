@@ -27,6 +27,9 @@ class TreeNode(graph.Node, Visitable):
     def accept(self, visitor):
         return isinstance(visitor, TreeVisitor)
 
+    def parent(self):
+        return self._parent
+
     def set_parent(self, p):
         self._parent = p
 
@@ -75,9 +78,12 @@ def to_ast(root, parent=None, seen=None):
         raise AssertionError("ast edges induce cycles, not a tree")
     seen[root.id()] = True
     children = []
+    node = TreeNode(
+        identifier=root._id, row=root._row, parent=parent, children=children)
     for edge in root.edges():
         if edge.type() in AST_EDGES:
-            children.append(to_ast(edge.end(), parent=root, seen=seen))
+            children.append(to_ast(edge.end(), parent=node, seen=seen))
 
-    return TreeNode(
-        identifier=root._id, row=root._row, parent=parent, children=children)
+    return node
+
+    

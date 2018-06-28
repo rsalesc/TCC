@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pygments.token as pygtoken
 import string
 from functools import wraps
 
@@ -9,6 +10,14 @@ from ..utils import isiterable
 
 WHITESPACE_CHARS = string.whitespace
 INDENT_CHARS = " \t"
+CONTROL_TOKENS = {
+    "do": True,
+    "else": True,
+    "if": True,
+    "switch": True,
+    "while": True,
+    "for": True
+}
 
 
 def feature(*args, **kwargs):
@@ -16,6 +25,7 @@ def feature(*args, **kwargs):
         raise AssertionError("Feature should have a name.")
 
     name_args_len = len(args)
+
     def feature_inner(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -68,14 +78,14 @@ def params_length_statistics(source):
 def log_tabs(source):
     """Get ln(no_of_tabs/len(code) + 1)."""
     code = source.fetch()
-    return math.log(code.count("\t") + 1)
+    return math.log(code.count("\t") / len(code) + 1)
 
 
 @unnamed_feature
 def log_spaces(source):
     """Get ln(no_of_spaces/len(code) + 1)."""
     code = source.fetch()
-    return math.log(code.count("\n") + 1)
+    return math.log(code.count(" ") / len(code) + 1)
 
 
 @unnamed_feature
@@ -145,6 +155,64 @@ def log_decls(source):
     return math.log(visitor.result() / length + 1)
 
 
+@unnamed_feature
+def log_ternaries(source):
+    """Get ln(ternary_operators / len(code) + 1)."""
+    length = len(source.fetch())
+    ast_root = source.fetch_ast()
+    visitor = CountVisitor([jt.CONDITIONAL_EXPRESSION])
+    visitor.visit(ast_root)
+    return math.log(visitor.result() / length + 1)
+
+
+@feature("compound_statement_max_depth", "compound_statement_branching",
+         "compound_statement_dangling")
+def compound_statements(source):
+    ast_root = source.fetch_ast()
+    visitor = CompoundStatementsVisitor()
+    visitor.visit(ast_root)
+    max_depth, branching, dangling = visitor.result()
+    return max_depth, branching, math.log(dangling + 1)
+
+
+@feature("log_tokens", "log_control_tokens", "log_literals")
+def tokens(source):
+    length = len(source.fetch())
+    tokens = source.fetch_tokens()
+    filtered_tokens = list(
+        filter(lambda x: x[1] not in pygtoken.Comment, tokens))
+    control_tokens = list(
+        filter(lambda x: x[1] in pygtoken.Keyword and x[2] in CONTROL_TOKENS,
+               tokens))
+    literal_tokens = list(filter(lambda x: x[1] in pygtoken.Literal, tokens))
+    return (math.log(len(filtered_tokens) / length + 1),
+            math.log(len(control_tokens) / length + 1),
+            math.log(len(literal_tokens) / length + 1))
+
+
+@unnamed_feature
+def log_unique_keywords(source):
+    length = len(source.fetch())
+    tokens = source.fetch_tokens()
+    unique = {}
+    for token in tokens:
+        if token[1] in pygtoken.Keyword:
+            unique[token[1]] = True
+    return math.log(len(unique) / length + 1)
+
+
+class NodeVisitor(TreeVisitor):
+    def __init__(self):
+        super().__init__()
+        self._sum_depth = {}
+        self._freq = {}
+
+    def result(self):
+        for key, value in self._freq.items():
+            self._sum_depth[key] /= value
+        return self._sum_depth.itervalues()
+
+
 class CountVisitor(TreeVisitor):
     def __init__(self, targets):
         super().__init__()
@@ -203,3 +271,35 @@ class ParamsLengthVisitor(TreeVisitor):
 
         for child in element.children():
             self.step(child)
+
+
+class CompoundStatementsVisitor(TreeVisitor):
+    def __init__(self):
+        super().__init__()
+        self._depth = 0
+        self._max_depth = 0
+        self._children = [0]
+        self._child_sum = 0
+        self._nodes = 0
+        self._dangling = 0
+
+    def result(self):
+        return self._max_depth, self._child_sum / max(self._nodes,
+                                                      1), self._dangling
+
+    def visit(self, element):
+        if element.type() == jt.COMPOUND_STATEMENT:
+            self._depth += 1
+            self._max_depth = max(self._max_depth, self._depth)
+            self._children[-1] += 1
+            self._children.append(0)
+            if element.parent() is None or element.parent().type() not in (
+                    jt.CONTROL_STATEMENTS + [jt.FUNCTION_DEF]):
+                self._dangling += 1
+        for child in element.children():
+            self.step(child)
+        if element.type() == jt.COMPOUND_STATEMENT or element.parent() is None:
+            if self._children[-1] > 0:
+                self._nodes += 1
+                self._child_sum += self._children[-1]
+            self._children.pop()

@@ -12,8 +12,10 @@ class DataframeFitter():
     def fit_fold(self, x, y):
         raise NotImplementedError()
 
-    def fit(self, df):
+    def fit(self, df, df_y=None):
         x, y = utils.split_label(df)
+        if df_y is not None:
+            y = df_y
         if y is None:
             raise AssertionError("fitting data should contain label field")
         if self._folder is None:
@@ -23,8 +25,10 @@ class DataframeFitter():
                 x_train, y_train = x[train_index], y[train_index]
                 self.fit_fold(x_train, y_train)
 
-    def predict(self, df):
+    def predict(self, df, df_y=None):
         x, y = utils.split_label(df)
+        if df_y is not None:
+            y = df_y
         y_pred = self._classifier.predict(x)
         return y_pred, y
 
@@ -32,7 +36,7 @@ class DataframeFitter():
 class RandomForestFitter(DataframeFitter):
     def __init__(self, folder=None, random_state=None, *args, **kwargs):
         super().__init__(
-            self, folder=folder, random_state=random_state, *args, **kwargs)
+            folder=folder, random_state=random_state, *args, **kwargs)
         self._classifier = RandomForestClassifier(
             random_state=random_state, **kwargs)
 
@@ -43,7 +47,7 @@ class RandomForestFitter(DataframeFitter):
 class XGBoostFitter(DataframeFitter):
     def __init__(self, folder=None, random_state=None, *args, **kwargs):
         super().__init__(
-            self, folder=folder, random_state=random_state, *args, **kwargs)
+            folder=folder, random_state=random_state, *args, **kwargs)
         self._classifier = XGBClassifier(random_state=random_state, **kwargs)
 
     def fit_fold(self, x, y):

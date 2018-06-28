@@ -1,6 +1,7 @@
 import os
 import random
 import shutil
+import pandas as pd
 
 
 def opens(*args, **kwargs):
@@ -45,8 +46,10 @@ def accumulator_sample(acc, K):
 
 
 def split_label(df):
-    if "label" not in df:
+    if not isinstance(df, pd.DataFrame):
         return df, None
+    if "label" not in df:
+        return df.values, None
     feature_matrix = df.drop(columns=["label"]).values
     label_array = df["label"].values
     return feature_matrix, label_array

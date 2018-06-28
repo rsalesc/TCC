@@ -27,13 +27,14 @@ class FeatureExtractor(metaclass=ABCMeta):
 
 
 class BatchFeatureExtractor(FeatureExtractor):
-    def __init__(self, extractor, batch_size=1):
+    def __init__(self, extractor, batch_size=1, monitor=False):
         if not isinstance(extractor, FeatureExtractor):
             raise AssertionError(
                 "BatchFeatureExtractor expects a FeatureExtractor")
         super().__init__()
         self._extractor = extractor
         self._batch_size = batch_size
+        self._monitor = monitor
 
     @contextmanager
     def bootstrap(self, objs):
@@ -45,7 +46,9 @@ class BatchFeatureExtractor(FeatureExtractor):
     def extract_row(self, obj):
         return self._extractor.extract_row(obj)
 
-    def extract_into_frame(self, objs, monitor=False):
+    def extract_into_frame(self, objs, monitor=None):
+        if monitor is None:
+            monitor = self._monitor
         rows = []
         batch_list = utils.list_batch(objs, self._batch_size)
         batch_list_size = (
@@ -57,7 +60,7 @@ class BatchFeatureExtractor(FeatureExtractor):
                 rows.extend(map(self.extract_row, bootstrapped_batch))
         return self.extract_header(), rows
 
-    def extract(self, objs, monitor=False):
+    def extract(self, objs, monitor=None):
         header, rows = self.extract_into_frame(objs, monitor=monitor)
         return pd.DataFrame(rows, columns=header)
 
