@@ -6,10 +6,20 @@ from .base import BaseTrainer
 
 
 class IterativeTrainer(BaseTrainer):
-    def __init__(self, iters_per_epoch, batch_size, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 sess,
+                 model,
+                 provider,
+                 iters_per_epoch=1,
+                 batch_size=1,
+                 *args,
+                 **kwargs):
+        super().__init__(sess, model, provider, *args, **kwargs)
         self._iters_per_epoch = iters_per_epoch
         self._batch_size = batch_size
+
+    def validate(self):
+        pass
 
     def train_epoch(self):
         loop = tqdm(
@@ -29,4 +39,4 @@ class IterativeTrainer(BaseTrainer):
         acc = np.mean(acc)
 
         # change to logger, save
-        print("Loss: {}, accuracy: {}".format(loss, acc))
+        print("Loss: {}, model acc: {}".format(loss, acc))

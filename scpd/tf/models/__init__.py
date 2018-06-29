@@ -1,1 +1,1 @@
-from .mpl_siamesis import SiamesisMLPModel
+from .base import BaseModel

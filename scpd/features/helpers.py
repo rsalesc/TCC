@@ -31,7 +31,7 @@ def feature(*args, **kwargs):
         def wrapper(*args, **kwargs):
             res = func(*args, **kwargs)
             # make sure the result is a tuple of features
-            if not isiterable(res):
+            if not isinstance(res, tuple):
                 res = (res, )
             res = tuple(res)
             if len(res) != name_args_len:

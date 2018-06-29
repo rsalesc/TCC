@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import random
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.decomposition import PCA
 
@@ -40,6 +40,15 @@ class RowPairing(ObjectPairing):
 def make_pairs(features, k1, k2):
     pairing = RowPairing()
     pairs = pairing.make_pairs(features.tolist(), k1=k1, k2=k2)
+    concat_pairs = []
+    labels = []
+    for pair in pairs:
+        concat_pair = []
+        concat_pair.append(pair[0][:-1])
+        concat_pair.append(pair[1][:-1])
+        labels.append(1 if pair[0][-1] != pair[1][-1] else 0)
+        concat_pairs.append(concat_pair)
+    return np.array(concat_pairs), np.array(labels)
 
 
 def apply_preprocessing(args, training_features, test_features):
@@ -53,16 +62,31 @@ def apply_preprocessing(args, training_features, test_features):
     training_features = scaler.fit_transform(training_features)
     test_features = scaler.transform(test_features)
 
+    # categorical to numerical
+    training_authors = LabelEncoder().fit_transform(training_authors)
+    test_authors = LabelEncoder().fit_transform(test_authors)
+
     if args.pca is not None:
         comps = min(args.pca, training_features.shape[1])
         pca = PCA(n_components=comps, random_state=MAGICAL_SEED * 42)
         training_features = pca.fit_transform(training_features)
         test_features = pca.transform(test_features)
 
-        print(pca.explained_variance_ratio_)
+        if args.verbose:
+            print("PCA explanation: {}".format(pca.explained_variance_ratio_))
 
     training_features = np.c_[training_features, training_authors]
     test_features = np.c_[test_features, test_authors]
+
+    training_data, training_labels = make_pairs(
+        training_features, k1=10000, k2=10000)
+    test_data, test_labels = make_pairs(test_features, k1=1000, k2=1000)
+
+    if args.verbose:
+        print("Training features shape: {}".format(training_data.shape))
+        print("Test features shape: {}".format(test_data.shape))
+
+    return training_data, training_labels, test_data, test_labels
 
 
 def get_label_distribution(labels):
@@ -75,7 +99,7 @@ def do_nn(args):
 
     training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
     test_features = pd.read_pickle(TEST_PKL, compression="infer")
-    (training_features, test_features, training_labels,
+    (training_features, training_labels, test_features,
      test_labels) = apply_preprocessing(args, training_features, test_features)
 
     training_prob_labels = get_label_distribution(training_labels)
@@ -95,11 +119,16 @@ def run_main(args):
 
     training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
     test_features = pd.read_pickle(TEST_PKL, compression="infer")
-    tÎraining_features, test_features = apply_preprocessing(
-        args, training_features, test_features)
+    training_features, training_labels, test_features, test_labels = (
+        apply_preprocessing(args, training_features, test_features))
 
     folder = StratifiedKFold(
         n_splits=7, random_state=MAGICAL_SEED, shuffle=True)
+
+    # reshape sets for them to be usable by sklearn fitters
+    training_features = training_features.reshape((training_features.shape[0],
+                                                   -1))
+    test_features = test_features.reshape((test_features.shape[0], -1))
 
     # expose predictions and labels
     test_pred = None
@@ -139,8 +168,6 @@ def build_main_dataset(args):
     training_sources, test_sources = builder.extract()
 
     random.seed(MAGICAL_SEED * 2)
-    # training_pairs = source.make_pairs(training_sources, k1=10000, k2=10000)
-    # test_pairs = source.make_pairs(test_sources, k1=1000, k2=1000)
 
     training_features = extract_features(training_sources)
     test_features = extract_features(test_sources)
@@ -156,9 +183,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "action", nargs="?", default="run", choices=["run", "build", "nn"])
-    parser.add_argument("--train", default=False, type=bool)
+    parser.add_argument("--train", default=False, action="store_true")
     parser.add_argument("--method", choices=LEARNING_METHODS)
     parser.add_argument("--pca", type=int)
+    parser.add_argument("--verbose", default=False, action="store_true")
+    parser.add_argument("--checkpoint", type=str)
+    parser.add_argument("--load", default=False, action="store_true")
 
     args = parser.parse_args()
 
