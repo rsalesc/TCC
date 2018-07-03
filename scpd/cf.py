@@ -45,6 +45,18 @@ def get_csrf_token(s):
     return token
 
 
+def csrf_token_getter(s):
+    got = None
+
+    def get():
+        nonlocal got
+        if got is None:
+            got = get_csrf_token(s)
+        return got
+
+    return get
+
+
 def get_cached_json(names):
     if not isinstance(names, list):
         names = [names]
@@ -110,7 +122,7 @@ CODEFORCES_POOL = RequestsPool(
 HTTP_POOL = RequestsPool(
     2, throttler=Throttler(1), session=Session(), sender=json_send_request)
 PROCESSING_POOL = concur.ThreadPoolExecutor(max_workers=4)
-CSRF_TOKEN = get_csrf_token(HTTP_POOL._session)
+CSRF_TOKEN = csrf_token_getter(HTTP_POOL._session)
 
 
 class ParticipantExtractor():
@@ -147,7 +159,7 @@ class Submission():
         return self.authors[0]
 
     def code_request(self):
-        data = {'submissionId': self.id, 'csrf_token': CSRF_TOKEN}
+        data = {'submissionId': self.id, 'csrf_token': CSRF_TOKEN()}
         headers = {'User-Agent': random.choice(DESKTOP_AGENTS)}
         return Request(
             'POST',

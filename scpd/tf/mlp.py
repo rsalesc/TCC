@@ -159,6 +159,6 @@ def execute(args,
                 batch_size=64,
                 val_batch_size=64)
 
-            if not saver.has_loaded():
+            if saver is None or not saver.has_loaded():
                 utils.init_variables(sess)
             trainer.train()

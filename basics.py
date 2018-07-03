@@ -2,13 +2,18 @@ import argparse
 import pandas as pd
 import numpy as np
 import random
+import os
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.decomposition import PCA
+from tensorflow.python.keras.models import load_model
+from tensorflow.python.keras.utils import Sequence
+from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
 
 from scpd import source
 from scpd.utils import ObjectPairing
 from scpd.tf import mlp
+from scpd.tf.keras.mlp import SimilarityMLP
 from scpd.features import (LabelerPairFeatureExtractor, BaseFeatureExtractor,
                            PrefetchBatchFeatureExtractor,
                            SmartPairFeatureExtractor)
@@ -22,6 +27,8 @@ SUBMISSION_API_COUNT = 10000
 LEARNING_METHODS = ["xgb", "random"]
 TRAINING_PKL = "training.pkl.gz"
 TEST_PKL = "test.pkl.gz"
+TRAINING_DAT = "submissions_training.dat"
+TEST_DAT = "submissions_test.dat"
 AUTHOR_COL = "author"
 
 
@@ -94,23 +101,77 @@ def get_label_distribution(labels):
     return np.stack((neg_labels, labels), axis=1)
 
 
+class RowSequence(Sequence):
+    def __init__(self, x, y, batch_size, shuffle=True):
+        self._x = x
+        self._y = y
+        self._batch_size = batch_size
+        self._size = x.shape[0]
+        if shuffle:
+            p = np.random.permutation(x.shape[0])
+            self._x = x[p]
+            self._y = y[p]
+
+    def __len__(self):
+        return (self._size + self._batch_size - 1) // self._batch_size
+
+    def __getitem__(self, idx):
+        batch_x = self._x[idx * self._batch_size:(idx + 1) * self._batch_size]
+        batch_y = self._y[idx * self._batch_size:(idx + 1) * self._batch_size]
+        return [batch_x[:, 0, :], batch_x[:, 1, :]], batch_y
+
+
 def do_nn(args):
     random.seed(MAGICAL_SEED)
+    BATCH_SIZE = 32
+    CHECKPOINT = ".cache/keras/mlp.{epoch:04d}.h5"
+    LAST_EPOCH = 0
 
     training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
     test_features = pd.read_pickle(TEST_PKL, compression="infer")
     (training_features, training_labels, test_features,
      test_labels) = apply_preprocessing(args, training_features, test_features)
 
-    training_prob_labels = get_label_distribution(training_labels)
-    test_prob_labels = get_label_distribution(test_labels)
+    training_sequence = RowSequence(
+        training_features, training_labels, batch_size=BATCH_SIZE)
+    test_sequence = RowSequence(
+        test_features, test_labels, batch_size=BATCH_SIZE)
+    input_size = training_features.shape[2]
 
-    mlp.execute(
-        args,
-        training_features=training_features,
-        test_features=test_features,
-        training_labels=training_prob_labels,
-        test_labels=test_prob_labels)
+    os.makedirs(".cache/keras", exist_ok=True)
+    tb = TensorBoard(log_dir="/tmp/tensorboard")
+    cp = ModelCheckpoint(CHECKPOINT)
+
+    nn = SimilarityMLP(input_size, 40, 8)
+
+    to_load = CHECKPOINT.format(epoch=LAST_EPOCH)
+    initial_epoch = LAST_EPOCH
+    if os.path.isfile(to_load):
+        print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
+        nn.model = load_model(to_load, SimilarityMLP.loader_objects())
+    else:
+        nn.build()
+        initial_epoch = 0
+
+    nn.compile(0.00005)
+    print(nn.model.summary())
+
+    nn.train(
+        training_sequence,
+        validation_data=test_sequence,
+        callbacks=[tb, cp],
+        epochs=100,
+        initial_epoch=initial_epoch)
+
+    # training_prob_labels = get_label_distribution(training_labels)
+    # test_prob_labels = get_label_distribution(test_labels)
+
+    # mlp.execute(
+    # args,
+    # training_features=training_features,
+    # test_features=test_features,
+    # training_labels=training_prob_labels,
+    # test_labels=test_prob_labels)
 
 
 def run_main(args):
@@ -161,8 +222,8 @@ def build_main_dataset(args):
     builder = CodeforcesDatasetBuilder(
         training_size=10,
         test_size=5,
-        training_file="submissions_training.dat",
-        test_file="submissions_test.dat",
+        training_file=TRAINING_DAT,
+        test_file=TEST_DAT,
         submissions_per_user=10,
         download=False)
     training_sources, test_sources = builder.extract()

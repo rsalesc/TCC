@@ -3,16 +3,25 @@ from contextlib import contextmanager
 from pygments.lexers.c_cpp import CppLexer
 
 
+def get_unique_objects(objs):
+    unique = {}
+    for obj in objs:
+        unique[id(obj)] = obj
+
+    return unique.values()
+
+
 @contextmanager
 def prefetch(sources):
+    unique_sources = get_unique_objects(sources)
     try:
-        for source in sources:
+        for source in unique_sources:
             source.prefetch()
         yield sources
     except Exception as e:
         print(traceback.format_exc())
     finally:
-        for source in sources:
+        for source in unique_sources:
             source.unfetch()
 
 
