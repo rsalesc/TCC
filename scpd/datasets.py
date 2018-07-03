@@ -79,12 +79,17 @@ class CodeforcesDatasetBuilder():
 
         return training_submissions, test_submissions
 
-    def extract(self, force=False, force_joern=False):
+    def extract_raw(self, force=False):
         training_submissions, test_submissions = self.extract_submissions(
             force)
 
         training_sources, test_sources = extract_cf_codes(
             training_submissions, self._download), extract_cf_codes(test_submissions, self._download)
+
+        return training_sources, test_sources
+
+    def extract(self, force=False, force_joern=False):
+        training_sources, test_sources = self.extract_raw(force=force)
 
         return extract_joern_codes(training_sources,
                                    force_joern), extract_joern_codes(

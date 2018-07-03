@@ -126,7 +126,7 @@ class SimilarityCharCNN(BaseModel):
         x = Flatten()(x)
 
         x = self.FullyConnectedLayer(1024)(x)
-        x = self.FullyConnectedLayer(512)(x)
+        x = self.FullyConnectedLayer(256, dropout=False)(x)
         x = self.FullyConnectedLayer(
             self._output_size, activation=None, dropout=False)(x)
         x = Lambda(l2_normalization)(x)

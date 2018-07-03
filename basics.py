@@ -225,7 +225,7 @@ def build_main_dataset(args):
         training_file=TRAINING_DAT,
         test_file=TEST_DAT,
         submissions_per_user=10,
-        download=False)
+        download=True)
     training_sources, test_sources = builder.extract()
 
     random.seed(MAGICAL_SEED * 2)

@@ -1,3 +1,4 @@
+import argparse
 import tensorflow as tf
 import numpy as np
 import random
@@ -85,15 +86,23 @@ def load_dataset():
         submissions_per_user=None,
         download=False)
 
-    training_sources, test_sources = builder.extract()
+    training_sources, test_sources = builder.extract_raw()
     return training_sources, test_sources
 
 
+def argparsing():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epoch", default=0, type=int)
+    parser.add_argument("--name", type=str, required=True)
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
+    args = argparsing()
     INPUT_SIZE = 768
     BATCH_SIZE = 32
-    CHECKPOINT = ".cache/keras/siamesis.{epoch:02d}.h5"
-    LAST_EPOCH = 0
+    CHECKPOINT = ".cache/keras/siamesis.{name}.{{epoch:02d}}.h5".format(name=args.name)
+    print(CHECKPOINT)
 
     training_sources, test_sources = load_dataset()
 
@@ -108,27 +117,27 @@ if __name__ == "__main__":
         test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
     os.makedirs(".cache/keras", exist_ok=True)
-    tb = TensorBoard(log_dir="/tmp/tensorboard")
+    tb = TensorBoard(log_dir="/tmp/tensorboard/{}".format(args.name))
     cp = ModelCheckpoint(CHECKPOINT)
 
     nn = SimilarityCharCNN(
         INPUT_SIZE,
         len(ALPHABET) + 1,
         embedding_size=70,
-        output_size=128,
+        output_size=20,
         dropout_conv=0.0,
         dropout_fc=0.4)
 
-    to_load = CHECKPOINT.format(epoch=LAST_EPOCH)
-    initial_epoch = LAST_EPOCH + 1
+    to_load = CHECKPOINT.format(epoch=args.epoch)
+    initial_epoch = args.epoch
     if os.path.isfile(to_load):
         print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
         nn.model = load_model(to_load, SimilarityCharCNN.loader_objects())
     else:
         nn.build()
-        initial_epoch = 1
+        initial_epoch = 0
 
-    nn.compile()
+    nn.compile(base_lr=0.01)
 
     print(nn.model.summary())
     nn.train(
