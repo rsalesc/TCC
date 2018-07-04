@@ -4,7 +4,7 @@ from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import (Input, Dense, Flatten, Lambda,
                                             Embedding)
-from tensorflow.python.keras.layers import Convolution1D
+from tensorflow.python.keras.layers import Convolution1D, MaxPooling1D
 from tensorflow.python.keras.layers import BatchNormalization
 from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
