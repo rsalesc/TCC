@@ -4,7 +4,8 @@ from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import (Input, Dense, Flatten, Lambda,
                                             Embedding)
-from tensorflow.python.keras.layers import Convolution1D, MaxPooling1D
+from tensorflow.python.keras.layers import Convolution1D
+from tensorflow.python.keras.layers import BatchNormalization
 from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
 
@@ -89,11 +90,12 @@ class SimilarityCharCNN(BaseModel):
         x = MaxPooling1D(3)(x)
 
         x = Flatten()(x)
+        x = BatchNormalization()(x)
 
         x = self.FullyConnectedLayer(1024)(x)
-        x = self.FullyConnectedLayer(256, dropout=False)(x)
+        x = self.FullyConnectedLayer(256)(x)
         x = self.FullyConnectedLayer(
-            self._output_size, activation=None, dropout=False)(x)
+            self._output_size, activation=None, dropout=False, batch_norm=False)(x)
         x = Lambda(l2_normalization)(x)
 
         return Model(input, x)
@@ -103,22 +105,28 @@ class SimilarityCharCNN(BaseModel):
                   kernel_size,
                   strides=1,
                   activation="relu",
-                  dropout=True):
+                  dropout=True,
+                  batch_norm=True):
         def builder(z):
             x = Convolution1D(
                 filters, kernel_size, strides=strides,
                 activation=activation)(z)
             if dropout:
                 x = Dropout(self._dropout_conv)(x)
+            if batch_norm:
+                x = BatchNormalization()(x)
+
             return x
 
         return builder
 
-    def FullyConnectedLayer(self, size, activation="relu", dropout=True):
+    def FullyConnectedLayer(self, size, activation="relu", dropout=True, batch_norm=True):
         def builder(z):
             x = Dense(size, activation=activation)(z)
             if dropout:
                 x = Dropout(self._dropout_fc)(x)
+            if batch_norm:
+                x = BatchNormalization()(x)
             return x
 
         return builder

@@ -119,7 +119,7 @@ if __name__ == "__main__":
         test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
     os.makedirs(".cache/keras", exist_ok=True)
-    tb = TensorBoard(log_dir="/tmp/tensorboard/{}".format(args.name))
+    tb = TensorBoard(log_dir="/opt/tensorboard/{}".format(args.name))
     cp = ModelCheckpoint(CHECKPOINT)
 
     nn = SimilarityCharCNN(
@@ -127,14 +127,14 @@ if __name__ == "__main__":
         len(ALPHABET) + 1,
         embedding_size=70,
         output_size=20,
-        dropout_conv=0.0,
-        dropout_fc=0.4)
+        dropout_conv=0.1,
+        dropout_fc=0.5)
 
     to_load = CHECKPOINT.format(epoch=args.epoch)
     initial_epoch = args.epoch
     if os.path.isfile(to_load):
         print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
-        nn.model = load_model(to_load, SimilarityCharCNN.loader_objects())
+        nn.model = load_model(to_load, nn.loader_objects())
     else:
         nn.build()
         initial_epoch = 0
@@ -146,5 +146,5 @@ if __name__ == "__main__":
         training_sequence,
         validation_data=test_sequence,
         callbacks=[tb, cp],
-        epochs=100,
+        epochs=1000,
         initial_epoch=initial_epoch)

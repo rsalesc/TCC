@@ -139,7 +139,7 @@ def do_nn(args):
     input_size = training_features.shape[2]
 
     os.makedirs(".cache/keras", exist_ok=True)
-    tb = TensorBoard(log_dir="/tmp/tensorboard")
+    tb = TensorBoard(log_dir="/opt/tensorboard")
     cp = ModelCheckpoint(CHECKPOINT)
 
     nn = SimilarityMLP(input_size, 40, 8)
@@ -148,7 +148,7 @@ def do_nn(args):
     initial_epoch = LAST_EPOCH
     if os.path.isfile(to_load):
         print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
-        nn.model = load_model(to_load, SimilarityMLP.loader_objects())
+        nn.model = load_model(to_load, nn.loader_objects())
     else:
         nn.build()
         initial_epoch = 0
