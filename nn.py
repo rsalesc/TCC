@@ -97,11 +97,13 @@ def argparsing():
 
     return parser.parse_args()
 
+
 if __name__ == "__main__":
     args = argparsing()
     INPUT_SIZE = 768
     BATCH_SIZE = 32
-    CHECKPOINT = ".cache/keras/siamesis.{name}.{{epoch:02d}}.h5".format(name=args.name)
+    CHECKPOINT = ".cache/keras/siamesis.{name}.{{epoch:02d}}.h5".format(
+        name=args.name)
     print(CHECKPOINT)
 
     training_sources, test_sources = load_dataset()

@@ -9,8 +9,8 @@ from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
 
 from .base import BaseModel
-from .char import (contrastive_loss, l2_normalization, accuracy,
-                   argmax_accuracy, euclidean_distance)
+from .common import (contrastive_loss, l2_normalization, accuracy,
+                     argmax_accuracy, euclidean_distance)
 
 
 class SimilarityMLP(BaseModel):
@@ -27,16 +27,19 @@ class SimilarityMLP(BaseModel):
         self._output_size = output_size
         self._dropout = dropout
 
+        self._contrastive_loss_fn = contrastive_loss(0.2)
+        self._accuracy_fn = accuracy(0.0, 2.0, 40)
+        self._argmax_accuracy_fn = argmax_accuracy(0.0, 2.0, 40)
+
     def input_shape(self):
         return (self._input_size, )
 
-    @staticmethod
-    def loader_objects():
+    def loader_objects(self):
         return {
             "tf": tf,
-            "contrastive_loss": contrastive_loss,
-            "accuracy": accuracy,
-            "argmax_accuracy": argmax_accuracy
+            "contrastive_loss": self._contrastive_loss_fn,
+            "accuracy": self._accuracy_fn,
+            "argmax_accuracy": self._argmax_accuracy_fn
         }
 
     def build(self):
@@ -52,6 +55,10 @@ class SimilarityMLP(BaseModel):
 
     def compile(self, base_lr):
         optimizer = Adam(lr=base_lr)
+        contrastive_loss = self._contrastive_loss_fn
+        accuracy = self._accuracy_fn
+        argmax_accuracy = self._argmax_accuracy_fn
+
         self.model.compile(
             loss=contrastive_loss,
             optimizer=optimizer,

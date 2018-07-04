@@ -13,7 +13,7 @@ from .common import (contrastive_loss, l2_normalization, accuracy,
 from .base import BaseModel
 
 
-class SimilarityCharCNN(BaseModel):
+class SimilarityCharLSTM(BaseModel):
     def __init__(self,
                  input_size,
                  alphabet_size,
