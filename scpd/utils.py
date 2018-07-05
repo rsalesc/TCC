@@ -33,6 +33,7 @@ def accumulator_sample(acc, K):
         raise AssertionError("accumulator should have first element 0")
     t = acc[-1]
     if K > t:
+        print(K, t)
         raise AssertionError("size of sample greater than candidates")
     indices = random.sample(range(t), K)
     indices.sort()

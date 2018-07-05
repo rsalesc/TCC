@@ -10,7 +10,8 @@ from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
 
 from .common import (contrastive_loss, l2_normalization, accuracy,
-                     argmax_accuracy, euclidean_distance)
+                     argmax_accuracy, euclidean_distance, triplet_loss,
+                     triplet_accuracy, triplet_argmax_accuracy)
 from .base import BaseModel
 
 
@@ -22,6 +23,7 @@ class SimilarityCharCNN(BaseModel):
                  output_size,
                  dropout_conv=0.5,
                  dropout_fc=0.5,
+                 margin=0.2,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -31,8 +33,9 @@ class SimilarityCharCNN(BaseModel):
         self._dropout_fc = dropout_fc
         self._embedding_size = embedding_size
         self._output_size = output_size
-        
-        self._contrastive_loss_fn = contrastive_loss(0.2)
+
+        self._margin = margin
+        self._contrastive_loss_fn = contrastive_loss(margin)
         self._accuracy_fn = accuracy(0.0, 2.0, 40)
         self._argmax_accuracy_fn = argmax_accuracy(0.0, 2.0, 40)
 
@@ -130,3 +133,35 @@ class SimilarityCharCNN(BaseModel):
             return x
 
         return builder
+
+class TripletCharCNN(SimilarityCharCNN):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._triplet_loss_fn = triplet_loss(self._margin)
+        self._triplet_accuracy_fn = accuracy(0.0, 2.0, 40)
+        self._triplet_argmax_accuracy_fn = argmax_accuracy(0.0, 2.0, 40)
+
+    def loader_objects(self):
+        return {
+            "tf": tf,
+            "triplet_loss": self._triplet_loss_fn,
+            "triplet_accuracy": self._triplet_accuracy_fn,
+            "triplet_argmax_accuracy": self._triplet_argmax_accuracy_fn
+        }
+
+    def compile(self, base_lr):
+        optimizer = Adam(lr=base_lr)
+        triplet_loss = self._triplet_loss_fn
+        accuracy = self._triplet_accuracy_fn
+        argmax_accuracy = self._triplet_argmax_accuracy_fn
+
+        self.model.compile(
+            loss=triplet_loss,
+            optimizer=optimizer,
+            metrics=[accuracy, argmax_accuracy])
+
+    def build(self):
+        x = Input(shape=self.input_shape())
+        embeddings = self.SiamesisNetwork()(x)
+
+        self.model = Model(x, embeddings)
