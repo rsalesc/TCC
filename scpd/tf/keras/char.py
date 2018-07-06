@@ -98,7 +98,10 @@ class SimilarityCharCNN(BaseModel):
         x = self.FullyConnectedLayer(1024)(x)
         x = self.FullyConnectedLayer(256)(x)
         x = self.FullyConnectedLayer(
-            self._output_size, activation=None, dropout=False, batch_norm=False)(x)
+            self._output_size,
+            activation=None,
+            dropout=False,
+            batch_norm=False)(x)
         x = Lambda(l2_normalization)(x)
 
         return Model(input, x)
@@ -123,7 +126,11 @@ class SimilarityCharCNN(BaseModel):
 
         return builder
 
-    def FullyConnectedLayer(self, size, activation="relu", dropout=True, batch_norm=True):
+    def FullyConnectedLayer(self,
+                            size,
+                            activation="relu",
+                            dropout=True,
+                            batch_norm=True):
         def builder(z):
             x = Dense(size, activation=activation)(z)
             if dropout:
@@ -134,12 +141,14 @@ class SimilarityCharCNN(BaseModel):
 
         return builder
 
+
 class TripletCharCNN(SimilarityCharCNN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._triplet_loss_fn = triplet_loss(self._margin)
-        self._triplet_accuracy_fn = accuracy(0.0, 2.0, 40)
-        self._triplet_argmax_accuracy_fn = argmax_accuracy(0.0, 2.0, 40)
+        self._triplet_accuracy_fn = triplet_accuracy(0.0, 2.0, 40)
+        self._triplet_argmax_accuracy_fn = triplet_argmax_accuracy(
+            0.0, 2.0, 40)
 
     def loader_objects(self):
         return {

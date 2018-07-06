@@ -3,6 +3,35 @@ from tensorflow.python.keras import backend as K
 from tensorflow.contrib.losses import metric_learning
 
 
+def pairwise_distances(embeddings, squared=False):
+    """Compute the 2D matrix of distances between all the embeddings.
+    Args:
+        embeddings: tensor of shape (batch_size, embed_dim)
+        squared: Boolean. If true, output is the pairwise squared euclidean 
+                 distance matrix. 
+                 If false, output is the pairwise euclidean distance matrix.
+    Returns:
+        pairwise_distances: tensor of shape (batch_size, batch_size)
+    """
+    dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
+    square_norm = tf.diag_part(dot_product)
+
+    # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
+    # shape (batch_size, batch_size)
+    distances = tf.expand_dims(square_norm, 1) - 2.0 * \
+        dot_product + tf.expand_dims(square_norm, 0)
+
+    distances = tf.maximum(distances, 0.0)
+
+    if not squared:
+        mask = tf.to_float(tf.equal(distances, 0.0))
+        distances = distances + mask * 1e-16
+        distances = tf.sqrt(distances)
+        distances = distances * (1.0 - mask)
+
+    return distances
+
+
 def contrastive_loss(margin):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
@@ -11,12 +40,17 @@ def contrastive_loss(margin):
     def contrastive_loss(y_true, y_pred):
         return 0.5 * K.mean((1 - y_true) * K.square(y_pred) +
                             y_true * K.square(K.maximum(margin - y_pred, 0)))
+
     return contrastive_loss
+
 
 def triplet_loss(margin):
     def triplet_loss(labels, embeddings):
-        return metric_learning.triplet_semihard_loss(tf.reshape(labels, [-1]), embeddings, margin=margin)
+        return metric_learning.triplet_semihard_loss(
+            tf.reshape(labels, [-1]), embeddings, margin=margin)
+
     return triplet_loss
+
 
 def l2_normalization(x):
     return tf.nn.l2_normalize(x, axis=1)
@@ -46,6 +80,7 @@ def accuracy(min=0.0, max=2.0, steps=40):
     def accuracy(y_true, y_pred):
         thresholds = tf.linspace(min, max, steps)
         return K.max(accuracy_per_threshold(y_true, y_pred, thresholds))
+
     return accuracy
 
 
@@ -54,25 +89,32 @@ def argmax_accuracy(min=0.0, max=2.0, steps=40):
         thresholds = tf.linspace(min, max, steps)
         idx = tf.argmax(accuracy_per_threshold(y_true, y_pred, thresholds))
         return tf.gather(thresholds, idx)
+
     return argmax_accuracy
 
 
 def triplet_accuracy_per_threshold(labels, embeddings, thresholds):
-    dist = metric_learning.metric_loss_ops.pairwise_distance(embeddings)
-    pair_labels = tf.equal(tf.reshape(labels, [-1, 1]), tf.reshape(labels, [1, -1]))
-    return accuracy_per_threshold(tf.reshape(pair_labels, [-1]), tf.reshape(dist, [-1]), thresholds)
+    dist = pairwise_distances(embeddings)
+    pair_labels = tf.equal(
+        tf.reshape(labels, [-1, 1]), tf.reshape(labels, [1, -1]))
+    return accuracy_per_threshold(
+        tf.reshape(pair_labels, [-1]), tf.reshape(dist, [-1]), thresholds)
 
 
 def triplet_accuracy(min=0.0, max=2.0, steps=40):
     def triplet_accuracy(y_true, y_pred):
         thresholds = tf.linspace(min, max, steps)
-        return K.max(triplet_accuracy_per_threshold(y_true, y_pred, thresholds))
+        return K.max(
+            triplet_accuracy_per_threshold(y_true, y_pred, thresholds))
+
     return triplet_accuracy
 
 
 def triplet_argmax_accuracy(min=0.0, max=2.0, steps=40):
     def triplet_argmax_accuracy(y_true, y_pred):
         thresholds = tf.linspace(min, max, steps)
-        idx = tf.argmax(triplet_accuracy_per_threshold(y_true, y_pred, thresholds))
+        idx = tf.argmax(
+            triplet_accuracy_per_threshold(y_true, y_pred, thresholds))
         return tf.gather(thresholds, idx)
+
     return triplet_argmax_accuracy
