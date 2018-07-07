@@ -95,7 +95,8 @@ def argmax_accuracy(min=0.0, max=2.0, steps=40):
 
 def triplet_accuracy_per_threshold(labels, embeddings, thresholds):
     dist = pairwise_distances(embeddings)
-    pair_labels = tf.reshape(labels, [-1, 1]) != tf.reshape(labels, [1, -1])
+    pair_labels = tf.cast(
+        tf.reshape(labels, [-1, 1]) != tf.reshape(labels, [1, -1]), tf.int32)
     return accuracy_per_threshold(
         tf.reshape(pair_labels, [-1]), tf.reshape(dist, [-1]), thresholds)
 
