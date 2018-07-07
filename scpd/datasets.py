@@ -73,9 +73,10 @@ class CodeforcesDatasetBuilder():
 
         if training_submissions is None:
             training_submissions = pickle.load(
-                utils.opens(self._training_file, "rb"))
+                utils.opens(self._training_file, "rb", encoding=None))
         if test_submissions is None:
-            test_submissions = pickle.load(utils.opens(self._test_file, "rb"))
+            test_submissions = pickle.load(
+                utils.opens(self._test_file, "rb", encoding=None))
 
         return training_submissions, test_submissions
 
@@ -84,7 +85,8 @@ class CodeforcesDatasetBuilder():
             force)
 
         training_sources, test_sources = extract_cf_codes(
-            training_submissions, self._download), extract_cf_codes(test_submissions, self._download)
+            training_submissions, self._download), extract_cf_codes(
+                test_submissions, self._download)
 
         return training_sources, test_sources
 
