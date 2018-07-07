@@ -4,7 +4,7 @@ import shutil
 import pandas as pd
 
 
-def opens(encoding="utf-8", *args, **kwargs):
+def opens(*args, encoding="utf-8", **kwargs):
     if len(args) == 0:
         raise AssertionError("File name argument should be informed")
     dirname = os.path.dirname(args[0])
