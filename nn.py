@@ -9,7 +9,7 @@ from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import LabelEncoder
-from keras.backend.tensorflow_backend import set_session
+from tensorflow.python.keras.backend.tensorflow_backend import set_session
 
 from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
