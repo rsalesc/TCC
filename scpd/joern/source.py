@@ -4,27 +4,26 @@ from ..source import SourceCode
 from ..graph.graph import CsvGraphParser
 from ..graph.astree import to_ast
 
-
 ID_FIELD = "key"
 NODES_CACHE = "{}.n.ast"
 EDGES_CACHE = "{}.e.ast"
 
+
 def check_joern_data_from(nodes_csv, edges_csv):
-    fn = open(nodes_csv, "r")
-    fe = open(edges_csv, "r")
+    fn = open(nodes_csv, "r", encoding="utf-8")
+    fe = open(edges_csv, "r", encoding="utf-8")
     csv_parser = CsvGraphParser(fn, fe, id_field=ID_FIELD)
     csv_parser.check()
     csv_parser.cleanup()
 
 
 def fetch_joern_data_from(nodes_csv, edges_csv):
-    fn = open(nodes_csv, "r")
-    fe = open(edges_csv, "r")
+    fn = open(nodes_csv, "r", encoding="utf-8")
+    fe = open(edges_csv, "r", encoding="utf-8")
     csv_parser = CsvGraphParser(fn, fe, id_field=ID_FIELD)
     graph = csv_parser.parse()
     csv_parser.cleanup()
     return to_ast(graph.node_by_index(0))
-
 
 
 class JoernSourceCode(SourceCode):

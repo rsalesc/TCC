@@ -2,6 +2,6 @@ from scpd.joern.parser import extract_joern_code
 from scpd.source import SourceCode
 
 if __name__ == "__main__":
-    with open("test/dummy.cpp") as f:
+    with open("test/dummy.cpp", encoding="utf-8") as f:
         source = SourceCode("roberio", f.read())
         print(extract_joern_code(source, cache_along=False))

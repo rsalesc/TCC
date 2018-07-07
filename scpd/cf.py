@@ -107,7 +107,7 @@ def get_rated_list():
 
 def get_cached_rated_list(force=False):
     if not force and os.path.isfile(RATED_LIST_PATH):
-        return json.load(open(RATED_LIST_PATH))
+        return json.load(open(RATED_LIST_PATH), encoding="utf-8")
     res = get_rated_list()
     json.dump(res, utils.opens(RATED_LIST_PATH, 'w'))
     return res

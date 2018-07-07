@@ -61,7 +61,7 @@ class JoernParser():
                 innerdir = os.path.join(d, DIRNAME)
                 os.makedirs(innerdir)
                 filepath = os.path.join(innerdir, CODENAME)
-                with open(filepath, "w") as f:
+                with open(filepath, "w", encoding="utf-8") as f:
                     f.write(self._source.fetch())
                 outdir = os.path.join(d, PARSED_FOLDER)
                 run_joern(filepath, outdir)
