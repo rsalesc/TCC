@@ -73,7 +73,7 @@ def accuracy_per_threshold(y_true, y_pred, thresholds):
     reshaped_true = tf.reshape(y_true, [-1, 1])
     correct_matrix = K.equal(
         K.cast(reshaped_pred > th, y_true.dtype), reshaped_true)
-    return K.mean(K.cast(correct_matrix, y_true.dtype), axis=0)
+    return K.mean(tf.cast(correct_matrix, tf.float32), axis=0)
 
 
 def accuracy(min=0.0, max=2.0, steps=40):

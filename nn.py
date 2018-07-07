@@ -22,7 +22,6 @@ def configure(args):
     if args.threads is not None:
         print("Using {} threads for inter and intra ops.".format(args.threads))
         config.inter_op_parallelism_threads = args.threads
-        config.intra_op_parallelism_threads = args.threads
     K.set_session(tf.Session(config=config))
 
 
