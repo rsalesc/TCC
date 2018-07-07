@@ -9,11 +9,19 @@ from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import LabelEncoder
+from keras.backend.tensorflow_backend import set_session
 
 from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
+
+
+def configure(args):
+    config = tf.ConfigProto()
+    config.inter_op_parallelism_threads = args.threads
+    config.intra_op_parallelism_threads = args.threads
+    set_session(tf.Session(config=config))
 
 
 class CodePairSequence(Sequence):
@@ -208,6 +216,8 @@ def argparsing():
 
 if __name__ == "__main__":
     args = argparsing()
+    configure(args)
+
     INPUT_SIZE = 768
     BATCH_SIZE = 32
     CHECKPOINT = ".cache/keras/{strategy}.{name}.{{epoch:02d}}.h5".format(
