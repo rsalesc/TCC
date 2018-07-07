@@ -5,11 +5,11 @@ import random
 import string
 import os
 from bisect import bisect
+from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.python.keras.backend.tensorflow_backend import set_session
 
 from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
@@ -19,9 +19,10 @@ from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 def configure(args):
     config = tf.ConfigProto()
-    config.inter_op_parallelism_threads = args.threads
-    config.intra_op_parallelism_threads = args.threads
-    set_session(tf.Session(config=config))
+    if args.threads is not None:
+        config.inter_op_parallelism_threads = args.threads
+        config.intra_op_parallelism_threads = args.threads
+    K.set_session(tf.Session(config=config))
 
 
 class CodePairSequence(Sequence):
@@ -210,6 +211,7 @@ def argparsing():
         choices=["contrastive", "triplet"])
     parser.add_argument("--epoch", default=0, type=int)
     parser.add_argument("--name", type=str, required=True)
+    parser.add_argument("--threads", type=int, default=None)
 
     return parser.parse_args()
 
