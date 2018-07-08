@@ -65,8 +65,11 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     th = tf.reshape(thresholds, [1, -1])
     dist = tf.reshape(dist, [-1, 1])
 
-    labels = tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
-    pred = tf.cast(dist > th, tf.int32)
+    # notice that although 1 means different in label, in terms of metrics
+    # 1 should mean positive, same class, so we flip it
+    labels = 1 - tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
+    pred = tf.cast(dist < th, tf.int32)
+
     tp = pred * labels
     tn = (1 - pred) * (1 - labels)
     corr = tp + tn
@@ -220,11 +223,7 @@ class OfflineMetric:
 
 
 class TripletValidationMetric(OfflineMetric):
-    def __init__(self,
-                 margin,
-                 *args,
-                 metric=["accuracy"],
-                 argmax=[],
+    def __init__(self, margin, *args, metric=["accuracy"], argmax=[],
                  **kwargs):
         self._margin = np.array(margin)
         assert len(argmax) == 0 or self._margin.ndim == 1
@@ -246,6 +245,8 @@ class TripletValidationMetric(OfflineMetric):
         self._scorer.handle(labels, pred)
 
     def result(self):
-        metrics = map(lambda x: np.max(self._scorer.result(x)), self._metric) 
-        argmaxes = map(lambda x: self._margin[np.argmax(self._scorer.result(x))], self._argmax)
+        metrics = map(lambda x: np.max(self._scorer.result(x)), self._metric)
+        argmaxes = map(
+            lambda x: self._margin[np.argmax(self._scorer.result(x))],
+            self._argmax)
         return tuple(metrics) + tuple(argmaxes)
