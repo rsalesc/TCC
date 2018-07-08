@@ -344,8 +344,8 @@ if __name__ == "__main__":
 
         training_generator = CodeForTripletGenerator(
             training_sources,
-            classes_per_batch=8,
-            samples_per_class=6,
+            classes_per_batch=24,
+            samples_per_class=8,
             input_size=INPUT_SIZE)
 
         # test_sequence = CodeSequence(
