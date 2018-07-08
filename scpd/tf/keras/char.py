@@ -144,11 +144,11 @@ class SimilarityCharCNN(BaseModel):
 
 
 class TripletCharCNN(SimilarityCharCNN):
-    def __init__(self, *args, metric=None, **kwargs):
+    def __init__(self, *args, metric="accuracy", metric_margin=None, **kwargs):
         super().__init__(*args, **kwargs)
+        assert metric is not None
         self._triplet_loss_fn = triplet_loss(self._margin)
-        if metric is not None:
-            self._metric = TripletOnKerasMetric(0.5, metric=metric)
+        self._metric = TripletOnKerasMetric(self._margin if metric_margin is None else metric_margin, metric=metric)
 
     def loader_objects(self):
         return {
@@ -164,7 +164,7 @@ class TripletCharCNN(SimilarityCharCNN):
         self.model.compile(
             loss=triplet_loss,
             optimizer=optimizer,
-            metrics=[self._metric] if self._metric is not None else [])
+            metrics=[self._metric])
 
     def build(self):
         x = Input(shape=self.input_shape())
