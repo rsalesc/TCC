@@ -147,7 +147,7 @@ class TripletCharCNN(SimilarityCharCNN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._triplet_loss_fn = triplet_loss(self._margin)
-        self._metric = TripletOnKerasMetric(0.5, metric="bacc")
+        self._metric = TripletOnKerasMetric(0.5, metric="precision")
 
     def loader_objects(self):
         return {

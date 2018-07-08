@@ -333,7 +333,8 @@ if __name__ == "__main__":
             embedding_size=70,
             output_size=20,
             dropout_conv=0.1,
-            dropout_fc=0.5)
+            dropout_fc=0.5,
+            metric="precision")
 
         if os.path.isfile(to_load):
             print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
@@ -347,8 +348,8 @@ if __name__ == "__main__":
 
         val_metric = TripletValidationMetric(
             np.linspace(0.0, 2.0, 40),
-            metric=["bacc", "accuracy"],
-            argmax=["accuracy"])
+            metric=["f1", "precision"],
+            argmax=["f1", "precision"])
         om = OfflineMetrics(
             on_epoch=[val_metric], validation_data=test_sequence)
 
