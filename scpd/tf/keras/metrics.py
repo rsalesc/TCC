@@ -69,7 +69,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
         precision = contrastive_score(
             labels, dist, thresholds, metric="precision")
         recall = contrastive_score(labels, dist, thresholds, metric="recall")
-        res["f1"] = 2 * precision * recall / (precision + recall + 1e-12)
+        res["f1"] = 2 * precision * recall / (precision + recall)
     if "bacc" in d:
         specificity = contrastive_score(
             labels, dist, thresholds, metric="specificity")
@@ -79,9 +79,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     th = tf.reshape(thresholds, [1, -1])
     dist = tf.reshape(dist, [-1, 1])
 
-    # notice that although 1 means different in label, in terms of metrics
-    # 1 should mean positive, same class, so we flip it
-    labels = 1 - tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
+    labels = tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
     pred = tf.cast(dist < th, tf.int32)
 
     tp = pred * labels
@@ -125,7 +123,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
 def triplet_score(labels, embeddings, thresholds, metric="accuracy"):
     dist = pairwise_distances(embeddings)
     labels = tf.reshape(labels, [-1, 1])
-    pair_labels = tf.cast(tf.not_equal(labels, tf.transpose(labels)), tf.int32)
+    pair_labels = tf.cast(tf.equal(labels, tf.transpose(labels)), tf.int32)
     flat_labels = upper_triangular_flat(pair_labels)
     flat_dist = upper_triangular_flat(dist)
 
@@ -157,22 +155,23 @@ class BatchScorer:
         self._total += d["total"]
 
     def result(self, metric):
-        if metric == "accuracy":
-            return (self._tp + self._tn) / self._total
-        if metric == "precision":
-            return self._tp / self._pcp
-        if metric == "recall":
-            return self._tp / self._cp
-        if metric == "specificity":
-            return self._tn / self._cn
-        if metric == "f1":
-            precision = self.result("precision")
-            recall = self.result("recall")
-            return 2 * precision * recall / (precision + recall + 1e-12)
-        if metric == "bacc":
-            recall = self.result("recall")
-            specificity = self.result("specificity")
-            return (recall + specificity) / 2
+        with np.warnings.catch_warnings():
+            if metric == "accuracy":
+                return (self._tp + self._tn) / self._total
+            if metric == "precision":
+                return self._tp / self._pcp
+            if metric == "recall":
+                return self._tp / self._cp
+            if metric == "specificity":
+                return self._tn / self._cn
+            if metric == "f1":
+                precision = self.result("precision")
+                recall = self.result("recall")
+                return 2 * precision * recall / (precision + recall)
+            if metric == "bacc":
+                recall = self.result("recall")
+                specificity = self.result("specificity")
+                return (recall + specificity) / 2
 
         raise NotImplementedError()
 
@@ -203,6 +202,20 @@ class TripletBatchScorer(ContrastiveBatchScorer):
                 tf.convert_to_tensor(y_pred, tf.float32),
                 tf.convert_to_tensor(self._margin, tf.float32),
                 metric=metric))
+
+
+class ContrastiveOnKerasMetric:
+    def __init__(self, margin, metric="accuracy"):
+        self.__name__ = "contrastive_{}".format(metric)
+        self._margin = margin
+        self._metric = metric
+
+    def __call__(self, labels, embeddings):
+        return contrastive_score(
+            labels,
+            embeddings,
+            tf.convert_to_tensor(self._margin),
+            metric=self._metric)
 
 
 class TripletOnKerasMetric:
@@ -236,7 +249,7 @@ class OfflineMetric:
         pass
 
 
-class TripletValidationMetric(OfflineMetric):
+class SimilarityValidationMetric(OfflineMetric):
     def __init__(self, margin, *args, metric=["accuracy"], argmax=[],
                  **kwargs):
         self._margin = np.array(margin)
@@ -244,23 +257,40 @@ class TripletValidationMetric(OfflineMetric):
         self._metric = metric if isinstance(metric, list) else [metric]
         self._argmax = argmax if isinstance(argmax, list) else [argmax]
         self._scorer = None
+        self._id = "sim"
         super().__init__(self, *args, **kwargs)
 
     def name(self):
-        metrics = map(lambda x: "val_triplet_{}".format(x), self._metric)
-        argmaxes = map(lambda x: "val_triplet_argmax_{}".format(x),
+        metrics = map(lambda x: "val_{}_{}".format(self._id, x), self._metric)
+        argmaxes = map(lambda x: "val_{}_argmax_{}".format(self._id, x),
                        self._argmax)
-        return tuple(metrics) + tuple(argmaxes)
-
-    def reset(self):
-        self._scorer = TripletBatchScorer(self._margin)
+        return tuple(metrics) + tuple(argmaxes) 
 
     def handle_batch(self, model, x, labels, pred):
         self._scorer.handle(labels, pred)
 
     def result(self):
-        metrics = map(lambda x: safe_nanmax(self._scorer.result(x)), self._metric)
+        metrics = map(lambda x: safe_nanmax(self._scorer.result(x)),
+                      self._metric)
         argmaxes = map(
             lambda x: self._margin[safe_nanargmax(self._scorer.result(x))],
             self._argmax)
         return tuple(metrics) + tuple(argmaxes)
+
+
+class TripletValidationMetric(SimilarityValidationMetric):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._id = "triplet"
+
+    def reset(self):
+        self._scorer = TripletBatchScorer(self._margin)
+
+
+class ContrastiveValidationMetric(SimilarityValidationMetric):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._id = "contrastive"
+
+    def reset(self):
+        self._scorer = ContrastiveBatchScorer(self._margin)

@@ -9,11 +9,10 @@ from tensorflow.python.keras.layers import BatchNormalization
 from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
 
-from .common import (contrastive_loss, l2_normalization, accuracy,
-                     argmax_accuracy, euclidean_distance, triplet_loss,
-                     triplet_accuracy, triplet_argmax_accuracy)
+from .common import (contrastive_loss, l2_normalization, euclidean_distance,
+                     triplet_loss)
 from .base import BaseModel
-from .metrics import TripletOnKerasMetric
+from .metrics import TripletOnKerasMetric, ContrastiveOnKerasMetric
 
 
 class SimilarityCharCNN(BaseModel):
@@ -25,6 +24,8 @@ class SimilarityCharCNN(BaseModel):
                  dropout_conv=0.5,
                  dropout_fc=0.5,
                  margin=0.2,
+                 metric="accuracy",
+                 metric_margin=None,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,8 +38,8 @@ class SimilarityCharCNN(BaseModel):
 
         self._margin = margin
         self._contrastive_loss_fn = contrastive_loss(margin)
-        self._accuracy_fn = accuracy(0.0, 2.0, 40)
-        self._argmax_accuracy_fn = argmax_accuracy(0.0, 2.0, 40)
+        self._metric = ContrastiveOnKerasMetric(
+            metric_margin or margin, metric=metric)
 
     def input_shape(self):
         return (self._input_size, )
@@ -47,8 +48,7 @@ class SimilarityCharCNN(BaseModel):
         return {
             "tf": tf,
             "contrastive_loss": self._contrastive_loss_fn,
-            "accuracy": self._accuracy_fn,
-            "argmax_accuracy": self._argmax_accuracy_fn
+            self._metric.__name__: self._metric
         }
 
     def build(self):
@@ -65,13 +65,9 @@ class SimilarityCharCNN(BaseModel):
     def compile(self, base_lr):
         optimizer = Adam(lr=base_lr)
         contrastive_loss = self._contrastive_loss_fn
-        accuracy = self._accuracy_fn
-        argmax_accuracy = self._argmax_accuracy_fn
 
         self.model.compile(
-            loss=contrastive_loss,
-            optimizer=optimizer,
-            metrics=[accuracy, argmax_accuracy])
+            loss=contrastive_loss, optimizer=optimizer, metrics=[self._metric])
 
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
@@ -148,7 +144,9 @@ class TripletCharCNN(SimilarityCharCNN):
         super().__init__(*args, **kwargs)
         assert metric is not None
         self._triplet_loss_fn = triplet_loss(self._margin)
-        self._metric = TripletOnKerasMetric(self._margin if metric_margin is None else metric_margin, metric=metric)
+        self._metric = TripletOnKerasMetric(
+            self._margin if metric_margin is None else metric_margin,
+            metric=metric)
 
     def loader_objects(self):
         return {
@@ -162,9 +160,7 @@ class TripletCharCNN(SimilarityCharCNN):
         triplet_loss = self._triplet_loss_fn
 
         self.model.compile(
-            loss=triplet_loss,
-            optimizer=optimizer,
-            metrics=[self._metric])
+            loss=triplet_loss, optimizer=optimizer, metrics=[self._metric])
 
     def build(self):
         x = Input(shape=self.input_shape())

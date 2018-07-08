@@ -14,9 +14,8 @@ from sklearn.preprocessing import LabelEncoder
 from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
-from scpd.tf.keras.common import (triplet_accuracy, pairwise_distances,
-                                  triplet_argmax_accuracy)
-from scpd.tf.keras.metrics import TripletValidationMetric
+from scpd.tf.keras.metrics import (TripletValidationMetric,
+                                   ContrastiveValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
 from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
@@ -184,7 +183,7 @@ def extract_pair_batch_features(batch, input_size=None):
     ]
     batch_y = []
     for a, b in batch:
-        batch_y.append(1 if a.author() != b.author() else 0)
+        batch_y.append(1 if a.author() == b.author() else 0)
 
     return batch_x, np.array(batch_y).reshape((-1, 1))
 
@@ -297,7 +296,8 @@ if __name__ == "__main__":
             embedding_size=70,
             output_size=20,
             dropout_conv=0.1,
-            dropout_fc=0.5)
+            dropout_fc=0.5,
+            metric="accuracy")
 
         if os.path.isfile(to_load):
             print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
@@ -308,11 +308,17 @@ if __name__ == "__main__":
 
         nn.compile(base_lr=0.01)
 
+        val_metric = ContrastiveValidationMetric(
+            np.linspace(0.0, 2.0, 40),
+            metric=["accuracy", "precision"],
+            argmax=["accuracy", "precision"])
+        om = OfflineMetrics(
+            on_epoch=[val_metric], validation_data=test_sequence)
+
         print(nn.model.summary())
         nn.train(
             training_sequence,
-            validation_data=test_sequence,
-            callbacks=[tb, cp],
+            callbacks=[om, tb, cp],
             epochs=1000,
             initial_epoch=initial_epoch)
     elif args.strategy == "triplet":
@@ -355,7 +361,6 @@ if __name__ == "__main__":
 
         nn.train(
             training_generator(),
-            # validation_data=test_sequence,
             callbacks=[om, tb, cp],
             epochs=200,
             steps_per_epoch=len(training_generator),

@@ -9,8 +9,7 @@ from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.optimizers import Adam
 
 from .base import BaseModel
-from .common import (contrastive_loss, l2_normalization, accuracy,
-                     argmax_accuracy, euclidean_distance)
+from .common import (contrastive_loss, l2_normalization, euclidean_distance)
 
 
 class SimilarityMLP(BaseModel):
