@@ -221,6 +221,7 @@ def argparsing():
     parser.add_argument("--epoch", default=0, type=int)
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--threads", type=int, default=None)
+    parser.add_argument("--period", type=int, default=3)
 
     return parser.parse_args()
 
@@ -275,7 +276,7 @@ if __name__ == "__main__":
 
     tb = TensorBoard(
         log_dir="/opt/tensorboard/{}/{}".format(args.strategy, args.name))
-    cp = ModelCheckpoint(CHECKPOINT, period=3)
+    cp = ModelCheckpoint(CHECKPOINT, period=args.period, save_weights_only=True)
     os.makedirs(".cache/keras", exist_ok=True)
     training_sources, test_sources = load_dataset()
 
