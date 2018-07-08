@@ -15,7 +15,8 @@ from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.metrics import (TripletValidationMetric,
-                                   ContrastiveValidationMetric)
+                                   ContrastiveValidationMetric,
+                                   FlatPairValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
 from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
@@ -41,6 +42,13 @@ class CodePairSequence(Sequence):
         batch = self._pairs[idx * self._batch_size:(idx + 1) *
                             self._batch_size]
         return extract_pair_batch_features(batch, self._input_size)
+
+
+class FlatCodePairSequence(CodePairSequence):
+    def __getitem__(self, idx):
+        batch = self._pairs[idx * self._batch_size:(idx + 1) *
+                            self._batch_size]
+        return extract_flat_pair_batch_features(batch, self._input_size)
 
 
 class CodeSequence(Sequence):
@@ -185,7 +193,14 @@ def extract_pair_batch_features(batch, input_size=None):
     for a, b in batch:
         batch_y.append(1 if a.author() == b.author() else 0)
 
-    return batch_x, np.array(batch_y).reshape((-1, 1))
+    return batch_x, np.array(batch_y)
+
+
+def extract_flat_pair_batch_features(batch, input_size=None):
+    x, y = extract_pair_batch_features(batch, input_size=input_size)
+    x = np.array(x)
+    x = np.transpose(x, (1, 0, 2)).reshape((x.shape[1] * 2, -1))
+    return x, y
 
 
 def make_pairs(dataset, k1, k2):
@@ -276,7 +291,8 @@ if __name__ == "__main__":
 
     tb = TensorBoard(
         log_dir="/opt/tensorboard/{}/{}".format(args.strategy, args.name))
-    cp = ModelCheckpoint(CHECKPOINT, period=args.period, save_weights_only=True)
+    cp = ModelCheckpoint(
+        CHECKPOINT, period=args.period, save_weights_only=True)
     os.makedirs(".cache/keras", exist_ok=True)
     training_sources, test_sources = load_dataset()
 
@@ -324,15 +340,21 @@ if __name__ == "__main__":
             initial_epoch=initial_epoch)
     elif args.strategy == "triplet":
         random.shuffle(training_sources)
-        random.shuffle(test_sources)
+        # random.shuffle(test_sources)
 
         training_generator = CodeForTripletGenerator(
             training_sources,
             classes_per_batch=8,
             samples_per_class=6,
             input_size=INPUT_SIZE)
-        test_sequence = CodeSequence(
-            test_sources, batch_size=16, input_size=INPUT_SIZE)
+
+        # test_sequence = CodeSequence(
+        #    test_sources, batch_size=16, input_size=INPUT_SIZE)
+
+        test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
+        random.shuffle(test_pairs)
+        test_sequence = FlatCodePairSequence(
+            test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
         nn = TripletCharCNN(
             INPUT_SIZE,
@@ -341,7 +363,8 @@ if __name__ == "__main__":
             output_size=20,
             dropout_conv=0.1,
             dropout_fc=0.5,
-            metric="bacc")
+            margin=0.1,
+            metric="precision")
 
         if os.path.isfile(to_load):
             print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
@@ -353,10 +376,10 @@ if __name__ == "__main__":
         nn.compile(base_lr=0.01)
         print(nn.model.summary())
 
-        val_metric = TripletValidationMetric(
+        val_metric = FlatPairValidationMetric(
             np.linspace(0.0, 2.0, 40),
-            metric=["f1", "precision"],
-            argmax=["f1", "precision"])
+            metric=["f1", "precision", "accuracy"],
+            argmax=["accuracy"])
         om = OfflineMetrics(
             on_epoch=[val_metric], validation_data=test_sequence)
 

@@ -156,6 +156,8 @@ class BatchScorer:
 
     def result(self, metric):
         with np.warnings.catch_warnings():
+            np.warnings.filterwarnings("ignore")
+
             if metric == "accuracy":
                 return (self._tp + self._tn) / self._total
             if metric == "precision":
@@ -192,9 +194,6 @@ class ContrastiveBatchScorer(BatchScorer):
 
 
 class TripletBatchScorer(ContrastiveBatchScorer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def score(self, y_true, y_pred, metric):
         return self._sess.run(
             triplet_score(
@@ -202,6 +201,14 @@ class TripletBatchScorer(ContrastiveBatchScorer):
                 tf.convert_to_tensor(y_pred, tf.float32),
                 tf.convert_to_tensor(self._margin, tf.float32),
                 metric=metric))
+
+
+class FlatPairBatchScorer(ContrastiveBatchScorer):
+    def score(self, y_true, y_pred, metric):
+        assert y_pred.shape[0] == y_true.shape[0] * 2
+        a, b = np.split(y_pred, 2)
+        dist = np.linalg.norm(a - b, axis=1)
+        return super().score(y_true, dist, metric)
 
 
 class ContrastiveOnKerasMetric:
@@ -264,7 +271,7 @@ class SimilarityValidationMetric(OfflineMetric):
         metrics = map(lambda x: "val_{}_{}".format(self._id, x), self._metric)
         argmaxes = map(lambda x: "val_{}_argmax_{}".format(self._id, x),
                        self._argmax)
-        return tuple(metrics) + tuple(argmaxes) 
+        return tuple(metrics) + tuple(argmaxes)
 
     def handle_batch(self, model, x, labels, pred):
         self._scorer.handle(labels, pred)
@@ -294,3 +301,12 @@ class ContrastiveValidationMetric(SimilarityValidationMetric):
 
     def reset(self):
         self._scorer = ContrastiveBatchScorer(self._margin)
+
+
+class FlatPairValidationMetric(SimilarityValidationMetric):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._id = "fpair"
+
+    def reset(self):
+        self._scorer = FlatPairBatchScorer(self._margin)
