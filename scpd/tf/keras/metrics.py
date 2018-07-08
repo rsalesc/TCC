@@ -1,0 +1,251 @@
+import tensorflow as tf
+import numpy as np
+
+
+def upper_triangular_flat(A):
+    ones = tf.ones_like(A)
+    mask_a = tf.matrix_band_part(ones, 0, -1)
+    mask_b = tf.matrix_band_part(ones, 0, 0)
+    mask = tf.cast(mask_a - mask_b, dtype=tf.bool)
+
+    return tf.boolean_mask(A, mask)
+
+
+def pairwise_distances(embeddings, squared=False):
+    """Compute the 2D matrix of distances between all the embeddings.
+    Args:
+        embeddings: tensor of shape (batch_size, embed_dim)
+        squared: Boolean. If true, output is the pairwise squared euclidean 
+                 distance matrix. 
+                 If false, output is the pairwise euclidean distance matrix.
+    Returns:
+        pairwise_distances: tensor of shape (batch_size, batch_size)
+    """
+    dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
+    square_norm = tf.diag_part(dot_product)
+
+    # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
+    # shape (batch_size, batch_size)
+    distances = tf.expand_dims(square_norm, 1) - 2.0 * \
+        dot_product + tf.expand_dims(square_norm, 0)
+
+    distances = tf.maximum(distances, 0.0)
+
+    if not squared:
+        mask = tf.to_float(tf.equal(distances, 0.0))
+        distances = distances + mask * 1e-16
+        distances = tf.sqrt(distances)
+        distances = distances * (1.0 - mask)
+
+    return distances
+
+
+def contrastive_score(labels, dist, thresholds, metric="accuracy"):
+    d = {}
+    if isinstance(metric, list):
+        for m in metric:
+            d[m] = True
+    else:
+        d[metric] = True
+    res = {}
+
+    if "total" in d:
+        res["total"] = tf.size(labels)
+    if "f1" in d:
+        precision = contrastive_score(
+            labels, dist, thresholds, metric="precision")
+        recall = contrastive_score(labels, dist, thresholds, metric="recall")
+        res["f1"] = 2 * precision * recall / (precision + recall + 1e-12)
+    if "bacc" in d:
+        specificity = contrastive_score(
+            labels, dist, thresholds, metric="specificity")
+        recall = contrastive_score(labels, dist, thresholds, metric="recall")
+        res["metric"] = (specificity + recall) / 2
+
+    th = tf.reshape(thresholds, [1, -1])
+    dist = tf.reshape(dist, [-1, 1])
+
+    labels = tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
+    pred = tf.cast(dist > th, tf.int32)
+    tp = pred * labels
+    tn = (1 - pred) * (1 - labels)
+    corr = tp + tn
+
+    tp = tf.reduce_sum(tf.cast(tp, tf.float32), axis=0)
+    tn = tf.reduce_sum(tf.cast(tn, tf.float32), axis=0)
+    pred = tf.cast(pred, tf.float32)
+    corr = tf.cast(corr, tf.float32)
+    labels = tf.cast(labels, tf.float32)
+
+    if "accuracy" in d:
+        res["accuracy"] = tf.reduce_mean(corr, axis=0)
+    if "precision" in d:
+        res["precision"] = tp / tf.reduce_sum(pred, axis=0)
+    if "recall" in d:
+        res["recall"] = tp / tf.reduce_sum(labels)
+    if "specificity" in d:
+        res["specificity"] = tn / tf.reduce_sum(1 - labels)
+    if "tp" in d:
+        res["tp"] = tp
+    if "tn" in d:
+        res["tn"] = tn
+    if "pcp" in d:
+        res["pcp"] = tf.reduce_sum(pred, axis=0)
+    if "pcn" in d:
+        res["pcn"] = tf.reduce_sum(1 - pred, axis=0)
+    if "cp" in d:
+        res["cp"] = tf.reduce_sum(labels)
+    if "cn" in d:
+        res["cn"] = tf.reduce_sum(1 - labels)
+
+    if len(d) != len(res):
+        raise NotImplementedError("some metrics were not implemented")
+    if not isinstance(metric, list):
+        return next(iter(res.values()))
+    return res
+
+
+def triplet_score(labels, embeddings, thresholds, metric="accuracy"):
+    dist = pairwise_distances(embeddings)
+    labels = tf.reshape(labels, [-1, 1])
+    pair_labels = tf.cast(tf.not_equal(labels, tf.transpose(labels)), tf.int32)
+    flat_labels = upper_triangular_flat(pair_labels)
+    flat_dist = upper_triangular_flat(dist)
+
+    return contrastive_score(flat_labels, flat_dist, thresholds, metric=metric)
+
+
+class BatchScorer:
+    def __init__(self):
+        self._tp = 0
+        self._tn = 0
+        self._pcp = 0
+        self._pcn = 0
+        self._cp = 0
+        self._cn = 0
+        self._total = 0
+
+    def score(self, y_true, y_pred, metric):
+        raise NotImplementedError()
+
+    def handle(self, y_true, y_pred):
+        d = self.score(y_true, y_pred,
+                       ["tp", "tn", "pcp", "pcn", "cp", "cn", "total"])
+        self._tp += d["tp"]
+        self._tn += d["tn"]
+        self._pcp += d["pcp"]
+        self._pcn += d["pcn"]
+        self._cp += d["cp"]
+        self._cn += d["cn"]
+        self._total += d["total"]
+
+    def result(self, metric):
+        if metric == "accuracy":
+            return (self._tp + self._tn) / self._total
+        if metric == "precision":
+            return self._tp / self._pcp
+        if metric == "recall":
+            return self._tp / self._cp
+        if metric == "specificity":
+            return self._tn / self._cn
+        if metric == "f1":
+            precision = self.result("precision")
+            recall = self.result("recall")
+            return 2 * precision * recall / (precision + recall + 1e-12)
+        if metric == "bacc":
+            recall = self.result("recall")
+            specificity = self.result("specificity")
+            return (recall + specificity) / 2
+
+        raise NotImplementedError()
+
+
+class ContrastiveBatchScorer(BatchScorer):
+    def __init__(self, margin, *args, **kwargs):
+        self._margin = margin
+        self._sess = tf.Session()
+        super().__init__(*args, **kwargs)
+
+    def score(self, y_true, y_pred, metric):
+        return self._sess.run(
+            contrastive_score(
+                tf.convert_to_tensor(y_true, tf.float32),
+                tf.convert_to_tensor(y_pred, tf.float32),
+                tf.convert_to_tensor(self._margin, tf.float32),
+                metric=metric))
+
+
+class TripletBatchScorer(ContrastiveBatchScorer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def score(self, y_true, y_pred, metric):
+        return self._sess.run(
+            triplet_score(
+                tf.convert_to_tensor(y_true, tf.float32),
+                tf.convert_to_tensor(y_pred, tf.float32),
+                tf.convert_to_tensor(self._margin, tf.float32),
+                metric=metric))
+
+
+class TripletOnKerasMetric:
+    def __init__(self, margin, metric="accuracy"):
+        self.__name__ = "triplet_{}".format(metric)
+        self._margin = margin
+        self._metric = metric
+
+    def __call__(self, labels, embeddings):
+        return triplet_score(
+            labels,
+            embeddings,
+            tf.convert_to_tensor(self._margin),
+            metric=self._metric)
+
+
+class OfflineMetric:
+    def __init__(self, *args, **kwargs):
+        self.__name__ = self.name()
+
+    def name(self):
+        raise NotImplementedError()
+
+    def handle_batch(self, model, x, labels, pred):
+        raise NotImplementedError()
+
+    def result(self):
+        raise NotImplementedError()
+
+    def reset(self):
+        pass
+
+
+class TripletValidationMetric(OfflineMetric):
+    def __init__(self,
+                 margin,
+                 *args,
+                 metric=["accuracy"],
+                 argmax=[],
+                 **kwargs):
+        self._margin = np.array(margin)
+        assert len(argmax) == 0 or self._margin.ndim == 1
+        self._metric = metric if isinstance(metric, list) else [metric]
+        self._argmax = argmax if isinstance(argmax, list) else [argmax]
+        self._scorer = None
+        super().__init__(self, *args, **kwargs)
+
+    def name(self):
+        metrics = map(lambda x: "val_triplet_{}".format(x), self._metric)
+        argmaxes = map(lambda x: "val_triplet_argmax_{}".format(x),
+                       self._argmax)
+        return tuple(metrics) + tuple(argmaxes)
+
+    def reset(self):
+        self._scorer = TripletBatchScorer(self._margin)
+
+    def handle_batch(self, model, x, labels, pred):
+        self._scorer.handle(labels, pred)
+
+    def result(self):
+        metrics = map(lambda x: np.max(self._scorer.result(x)), self._metric) 
+        argmaxes = map(lambda x: self._margin[np.argmax(self._scorer.result(x))], self._argmax)
+        return tuple(metrics) + tuple(argmaxes)

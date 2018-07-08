@@ -13,6 +13,7 @@ from .common import (contrastive_loss, l2_normalization, accuracy,
                      argmax_accuracy, euclidean_distance, triplet_loss,
                      triplet_accuracy, triplet_argmax_accuracy)
 from .base import BaseModel
+from .metrics import TripletOnKerasMetric
 
 
 class SimilarityCharCNN(BaseModel):
@@ -146,28 +147,23 @@ class TripletCharCNN(SimilarityCharCNN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._triplet_loss_fn = triplet_loss(self._margin)
-        self._triplet_accuracy_fn = triplet_accuracy(0.0, 2.0, 40)
-        self._triplet_argmax_accuracy_fn = triplet_argmax_accuracy(
-            0.0, 2.0, 40)
+        self._metric = TripletOnKerasMetric(0.5, metric="bacc")
 
     def loader_objects(self):
         return {
             "tf": tf,
             "triplet_loss": self._triplet_loss_fn,
-            "triplet_accuracy": self._triplet_accuracy_fn,
-            "triplet_argmax_accuracy": self._triplet_argmax_accuracy_fn
+            self._metric.__name__: self._metric
         }
 
     def compile(self, base_lr):
         optimizer = Adam(lr=base_lr)
         triplet_loss = self._triplet_loss_fn
-        accuracy = self._triplet_accuracy_fn
-        argmax_accuracy = self._triplet_argmax_accuracy_fn
 
         self.model.compile(
             loss=triplet_loss,
             optimizer=optimizer,
-            metrics=[accuracy, argmax_accuracy])
+            metrics=[self._metric])
 
     def build(self):
         x = Input(shape=self.input_shape())

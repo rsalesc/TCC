@@ -3,6 +3,15 @@ from tensorflow.python.keras import backend as K
 from tensorflow.contrib.losses import metric_learning
 
 
+def upper_triangular_flat(A):
+    ones = tf.ones_like(A)
+    mask_a = tf.matrix_band_part(ones, 0, -1)
+    mask_b = tf.matrix_band_part(ones, 0, 0)
+    mask = tf.cast(mask_a - mask_b, dtype=tf.bool)
+
+    return tf.boolean_mask(A, mask)
+
+
 def pairwise_distances(embeddings, squared=False):
     """Compute the 2D matrix of distances between all the embeddings.
     Args:
@@ -62,11 +71,6 @@ def euclidean_distance(vects):
         K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
 
 
-def euclidean_distance_output_shape(shapes):
-    shape1, shape2 = shapes
-    return (shape1[0], 1)
-
-
 def accuracy_per_threshold(y_true, y_pred, thresholds):
     th = tf.reshape(thresholds, [1, -1])
     reshaped_pred = tf.reshape(y_pred, [-1, 1])
@@ -95,10 +99,12 @@ def argmax_accuracy(min=0.0, max=2.0, steps=40):
 
 def triplet_accuracy_per_threshold(labels, embeddings, thresholds):
     dist = pairwise_distances(embeddings)
-    pair_labels = tf.cast(
-        tf.reshape(labels, [-1, 1]) != tf.reshape(labels, [1, -1]), tf.int32)
+    labels = tf.reshape(labels, [-1, 1])
+    pair_labels = tf.cast(tf.not_equal(labels, tf.transpose(labels)), tf.int32)
+
     return accuracy_per_threshold(
-        tf.reshape(pair_labels, [-1]), tf.reshape(dist, [-1]), thresholds)
+        upper_triangular_flat(pair_labels), upper_triangular_flat(dist),
+        thresholds)
 
 
 def triplet_accuracy(min=0.0, max=2.0, steps=40):

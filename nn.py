@@ -14,6 +14,10 @@ from sklearn.preprocessing import LabelEncoder
 from scpd.utils import ObjectPairing
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
+from scpd.tf.keras.common import (triplet_accuracy, pairwise_distances,
+                                  triplet_argmax_accuracy)
+from scpd.tf.keras.metrics import TripletValidationMetric
+from scpd.tf.keras.callbacks import OfflineMetrics
 from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 
@@ -62,6 +66,7 @@ class CodeForTripletGenerator:
                  sequence,
                  classes_per_batch,
                  samples_per_class,
+                 extra_negatives=0,
                  input_size=None):
         self._sequence = sequence.copy()
         self._labels = self._generate_labels()
@@ -72,9 +77,11 @@ class CodeForTripletGenerator:
         self._classes_per_batch = classes_per_batch
         self._samples_per_class = samples_per_class
         self._input_size = input_size
+        self._extra_negatives = extra_negatives
 
     def __len__(self):
-        batch_size = self._classes_per_batch * self._samples_per_class
+        batch_size = (self._classes_per_batch * self._samples_per_class +
+                      self._extra_negatives)
         return (len(self._sequence) + batch_size - 1) // batch_size
 
     def __call__(self):
@@ -82,7 +89,10 @@ class CodeForTripletGenerator:
             batch_x, batch_y = zip(
                 *self._pick_from_classes(self._classes_per_batch,
                                          self._samples_per_class))
-            yield extract_batch_x(batch_x, self._input_size), np.array(batch_y)
+            np_x = extract_batch_x(batch_x, self._input_size)
+            np_y = np.array(batch_y)
+            p = np.random.permutation(len(batch_x))
+            yield np_x[p], np_y[p]
 
     def _pick_from_classes(self, n, m):
         res = []
@@ -216,7 +226,44 @@ def argparsing():
     return parser.parse_args()
 
 
+def testing():
+    INPUT_SIZE = 768
+    OUTPUT_SIZE = 8
+
+    training_sources, test_sources = load_dataset()
+    training_generator = CodeForTripletGenerator(
+        training_sources,
+        classes_per_batch=8,
+        samples_per_class=6,
+        input_size=INPUT_SIZE)
+
+    accuracy_fn = triplet_accuracy()
+    argmax_fn = triplet_argmax_accuracy()
+    with tf.Session() as sess:
+        for x, y in training_generator():
+            embeddings = np.random.normal(size=(y.shape[0], OUTPUT_SIZE))
+            embeddings = embeddings / \
+                np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+            print(y)
+
+            y_tensor = tf.convert_to_tensor(y, dtype=tf.float32)
+            embeddings_tensor = tf.convert_to_tensor(
+                embeddings, dtype=tf.float32)
+            accuracy = accuracy_fn(y_tensor, embeddings_tensor)
+            argmax = argmax_fn(y_tensor, embeddings_tensor)
+            pdist = pairwise_distances(embeddings_tensor)
+            print(accuracy.eval())
+            print(argmax.eval())
+            print(pdist.eval())
+            input("Next? (enter)")
+
+
 if __name__ == "__main__":
+    #import sys
+    # testing()
+    # sys.exit(0)
+
     args = argparsing()
     configure(args)
 
@@ -298,10 +345,17 @@ if __name__ == "__main__":
         nn.compile(base_lr=0.01)
         print(nn.model.summary())
 
+        val_metric = TripletValidationMetric(
+            np.linspace(0.0, 2.0, 40),
+            metric=["bacc", "accuracy"],
+            argmax=["accuracy"])
+        om = OfflineMetrics(
+            on_epoch=[val_metric], validation_data=test_sequence)
+
         nn.train(
             training_generator(),
-            validation_data=test_sequence,
-            callbacks=[tb, cp],
+            # validation_data=test_sequence,
+            callbacks=[om, tb, cp],
             epochs=200,
             steps_per_epoch=len(training_generator),
             initial_epoch=initial_epoch)
