@@ -2,6 +2,20 @@ import tensorflow as tf
 import numpy as np
 
 
+def safe_nanmax(x):
+    with np.warnings.catch_warnings():
+        np.warnings.filterwarnings('ignore',
+                                   r'All-NaN (slice|axis) encountered')
+        return np.nanmax(x)
+
+
+def safe_nanargmax(x):
+    try:
+        return np.nanargmax(x)
+    except ValueError:
+        return np.nan
+
+
 def upper_triangular_flat(A):
     ones = tf.ones_like(A)
     mask_a = tf.matrix_band_part(ones, 0, -1)
@@ -245,8 +259,8 @@ class TripletValidationMetric(OfflineMetric):
         self._scorer.handle(labels, pred)
 
     def result(self):
-        metrics = map(lambda x: np.max(self._scorer.result(x)), self._metric)
+        metrics = map(lambda x: safe_nanmax(self._scorer.result(x)), self._metric)
         argmaxes = map(
-            lambda x: self._margin[np.argmax(self._scorer.result(x))],
+            lambda x: self._margin[safe_nanargmax(self._scorer.result(x))],
             self._argmax)
         return tuple(metrics) + tuple(argmaxes)
