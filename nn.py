@@ -363,7 +363,7 @@ if __name__ == "__main__":
             output_size=20,
             dropout_conv=0.1,
             dropout_fc=0.5,
-            margin=0.1,
+            margin=1.0,
             metric="precision")
 
         if os.path.isfile(to_load):
