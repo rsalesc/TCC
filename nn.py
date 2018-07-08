@@ -334,7 +334,7 @@ if __name__ == "__main__":
             output_size=20,
             dropout_conv=0.1,
             dropout_fc=0.5,
-            metric="precision")
+            metric="bacc")
 
         if os.path.isfile(to_load):
             print("LOADING PRELOADED MODEL EPOCH={}".format(initial_epoch))
