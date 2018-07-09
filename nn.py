@@ -392,7 +392,7 @@ if __name__ == "__main__":
         nn.train(
             training_generator(),
             callbacks=[om, tb, cp],
-            epochs=200,
+            epochs=1000,
             steps_per_epoch=len(training_generator),
             initial_epoch=initial_epoch)
     else:
