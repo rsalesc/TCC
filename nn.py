@@ -373,7 +373,7 @@ if __name__ == "__main__":
             nn.build()
             initial_epoch = 0
 
-        nn.compile(base_lr=0.05)
+        nn.compile(base_lr=0.5, decay=0.0075)
         print(nn.model.summary())
 
         val_metric = FlatPairValidationMetric(
