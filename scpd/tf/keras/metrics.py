@@ -186,9 +186,9 @@ class ContrastiveBatchScorer(BatchScorer):
 
     def score(self, y_true, y_pred, metric):
         graph = tf.Graph()
-        with self._sess.as_default():
+        with tf.Session(graph=graph) as sess:
             with graph.as_default():
-                return self._sess.run(
+                return sess.run(
                     contrastive_score(
                         tf.convert_to_tensor(y_true, tf.float32),
                         tf.convert_to_tensor(y_pred, tf.float32),
@@ -199,9 +199,9 @@ class ContrastiveBatchScorer(BatchScorer):
 class TripletBatchScorer(ContrastiveBatchScorer):
     def score(self, y_true, y_pred, metric):
         graph = tf.Graph()
-        with self._sess.as_default():
+        with tf.Session(graph=graph) as sess:
             with graph.as_default():
-                return self._sess.run(
+                return sess.run(
                     triplet_score(
                         tf.convert_to_tensor(y_true, tf.float32),
                         tf.convert_to_tensor(y_pred, tf.float32),
