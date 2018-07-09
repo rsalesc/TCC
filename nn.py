@@ -242,44 +242,7 @@ def argparsing():
     return parser.parse_args()
 
 
-def testing():
-    INPUT_SIZE = 768
-    OUTPUT_SIZE = 8
-
-    training_sources, test_sources = load_dataset()
-    training_generator = CodeForTripletGenerator(
-        training_sources,
-        classes_per_batch=8,
-        samples_per_class=6,
-        input_size=INPUT_SIZE)
-
-    accuracy_fn = triplet_accuracy()
-    argmax_fn = triplet_argmax_accuracy()
-    with tf.Session() as sess:
-        for x, y in training_generator():
-            embeddings = np.random.normal(size=(y.shape[0], OUTPUT_SIZE))
-            embeddings = embeddings / \
-                np.linalg.norm(embeddings, axis=1, keepdims=True)
-
-            print(y)
-
-            y_tensor = tf.convert_to_tensor(y, dtype=tf.float32)
-            embeddings_tensor = tf.convert_to_tensor(
-                embeddings, dtype=tf.float32)
-            accuracy = accuracy_fn(y_tensor, embeddings_tensor)
-            argmax = argmax_fn(y_tensor, embeddings_tensor)
-            pdist = pairwise_distances(embeddings_tensor)
-            print(accuracy.eval())
-            print(argmax.eval())
-            print(pdist.eval())
-            input("Next? (enter)")
-
-
 if __name__ == "__main__":
-    #import sys
-    # testing()
-    # sys.exit(0)
-
     args = argparsing()
     configure(args)
 
@@ -344,16 +307,12 @@ if __name__ == "__main__":
             initial_epoch=initial_epoch)
     elif args.strategy == "triplet":
         random.shuffle(training_sources)
-        # random.shuffle(test_sources)
 
         training_generator = CodeForTripletGenerator(
             training_sources,
             classes_per_batch=24,
             samples_per_class=8,
             input_size=INPUT_SIZE)
-
-        # test_sequence = CodeSequence(
-        #    test_sources, batch_size=16, input_size=INPUT_SIZE)
 
         test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
         random.shuffle(test_pairs)
