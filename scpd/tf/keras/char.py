@@ -26,15 +26,18 @@ class SimilarityCharCNN(BaseModel):
                  margin=0.2,
                  metric="accuracy",
                  metric_margin=None,
+                 optimizer=None,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
+        assert optimizer is not None
         self._input_size = input_size
         self._alphabet_size = alphabet_size
         self._dropout_conv = dropout_conv
         self._dropout_fc = dropout_fc
         self._embedding_size = embedding_size
         self._output_size = output_size
+        self._optimizer = optimizer
 
         self._margin = margin
         self._contrastive_loss_fn = contrastive_loss(margin)
@@ -63,11 +66,10 @@ class SimilarityCharCNN(BaseModel):
         self.model = Model([x1, x2], distance)
 
     def compile(self, base_lr):
-        optimizer = Adam(lr=base_lr)
         contrastive_loss = self._contrastive_loss_fn
 
         self.model.compile(
-            loss=contrastive_loss, optimizer=optimizer, metrics=[self._metric])
+            loss=contrastive_loss, optimizer=self._optimizer, metrics=[self._metric])
 
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
@@ -156,11 +158,12 @@ class TripletCharCNN(SimilarityCharCNN):
         }
 
     def compile(self, base_lr):
-        optimizer = Adam(lr=base_lr)
         triplet_loss = self._triplet_loss_fn
 
         self.model.compile(
-            loss=triplet_loss, optimizer=optimizer, metrics=[self._metric])
+            loss=triplet_loss,
+            optimizer=self._optimizer,
+            metrics=[self._metric])
 
     def build(self):
         x = Input(shape=self.input_shape())

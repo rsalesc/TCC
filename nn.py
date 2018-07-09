@@ -9,6 +9,7 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
+from tensorflow.python.keras.optimizers import Adam
 from sklearn.preprocessing import LabelEncoder
 
 from scpd.utils import ObjectPairing
@@ -307,6 +308,8 @@ if __name__ == "__main__":
         test_sequence = CodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
+        optimizer = Adam(lr=0.01)
+
         nn = SimilarityCharCNN(
             INPUT_SIZE,
             len(ALPHABET) + 1,
@@ -314,6 +317,7 @@ if __name__ == "__main__":
             output_size=20,
             dropout_conv=0.1,
             dropout_fc=0.5,
+            optimizer=optimizer,
             metric="accuracy")
 
         if os.path.isfile(to_load):
@@ -356,6 +360,7 @@ if __name__ == "__main__":
         test_sequence = FlatCodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
+        optimizer = Adam(lr=0.5, decay=0.008)
         nn = TripletCharCNN(
             INPUT_SIZE,
             len(ALPHABET) + 1,
@@ -364,6 +369,7 @@ if __name__ == "__main__":
             dropout_conv=0.1,
             dropout_fc=0.5,
             margin=1.0,
+            optimizer=optimizer,
             metric="precision")
 
         if os.path.isfile(to_load):
