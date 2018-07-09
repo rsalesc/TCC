@@ -263,7 +263,12 @@ class OfflineMetric:
 
 
 class SimilarityValidationMetric(OfflineMetric):
-    def __init__(self, margin, *args, id="sim", metric=["accuracy"], argmax=[],
+    def __init__(self,
+                 margin,
+                 *args,
+                 id="sim",
+                 metric=["accuracy"],
+                 argmax=[],
                  **kwargs):
         self._margin = np.array(margin)
         assert len(argmax) == 0 or self._margin.ndim == 1
@@ -292,7 +297,7 @@ class SimilarityValidationMetric(OfflineMetric):
 
 
 class TripletValidationMetric(SimilarityValidationMetric):
-    def __init__(self, id="triplet", *args, **kwargs):
+    def __init__(self, *args, id="triplet", **kwargs):
         super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
@@ -300,7 +305,7 @@ class TripletValidationMetric(SimilarityValidationMetric):
 
 
 class ContrastiveValidationMetric(SimilarityValidationMetric):
-    def __init__(self, id="contrastive", *args, **kwargs):
+    def __init__(self, *args, id="contrastive", **kwargs):
         super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
@@ -308,7 +313,7 @@ class ContrastiveValidationMetric(SimilarityValidationMetric):
 
 
 class FlatPairValidationMetric(SimilarityValidationMetric):
-    def __init__(self, id="fpair", *args, **kwargs):
+    def __init__(self, *args, id="fpair", **kwargs):
         super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
