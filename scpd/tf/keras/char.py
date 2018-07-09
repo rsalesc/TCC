@@ -65,11 +65,13 @@ class SimilarityCharCNN(BaseModel):
 
         self.model = Model([x1, x2], distance)
 
-    def compile(self, base_lr):
+    def compile(self):
         contrastive_loss = self._contrastive_loss_fn
 
         self.model.compile(
-            loss=contrastive_loss, optimizer=self._optimizer, metrics=[self._metric])
+            loss=contrastive_loss,
+            optimizer=self._optimizer,
+            metrics=[self._metric])
 
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
@@ -157,7 +159,7 @@ class TripletCharCNN(SimilarityCharCNN):
             self._metric.__name__: self._metric
         }
 
-    def compile(self, base_lr):
+    def compile(self):
         triplet_loss = self._triplet_loss_fn
 
         self.model.compile(
