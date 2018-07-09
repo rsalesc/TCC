@@ -285,7 +285,7 @@ if __name__ == "__main__":
 
     INPUT_SIZE = 768
     BATCH_SIZE = 32
-    CHECKPOINT = ".cache/keras/{strategy}.{name}.{{epoch:02d}}.h5".format(
+    CHECKPOINT = ".cache/keras/{strategy}.{name}.{{epoch:04d}}.h5".format(
         strategy=args.strategy, name=args.name)
     to_load = CHECKPOINT.format(epoch=args.epoch)
     initial_epoch = args.epoch
