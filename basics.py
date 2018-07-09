@@ -21,14 +21,13 @@ from scpd.metrics import BinaryClassificationMetrics
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.learning.scikit import RandomForestFitter, XGBoostFitter
 
-MAGICAL_SEED = 42
+from constants import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
+
 SUBMISSION_API_COUNT = 10000
 
 LEARNING_METHODS = ["xgb", "random"]
 TRAINING_PKL = "training.pkl.gz"
 TEST_PKL = "test.pkl.gz"
-TRAINING_DAT = "submissions_training.dat"
-TEST_DAT = "submissions_test.dat"
 AUTHOR_COL = "author"
 
 

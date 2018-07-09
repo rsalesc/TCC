@@ -19,7 +19,7 @@ from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
                                    FlatPairValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
-from basics import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
+from constants import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 
 def configure(args):
@@ -212,16 +212,16 @@ def make_pairs(dataset, k1, k2):
     return pairs
 
 
-def load_dataset():
+def load_dataset(args):
     random.seed(MAGICAL_SEED)
 
     builder = CodeforcesDatasetBuilder(
         training_size=None,
         test_size=None,
-        training_file=TRAINING_DAT,
-        test_file=TEST_DAT,
+        training_file=args.training_file,
+        test_file=args.validation_file,
         submissions_per_user=None,
-        download=False)
+        download=args.download_dataset)
 
     training_sources, test_sources = builder.extract_raw()
     return training_sources, test_sources
@@ -229,22 +229,164 @@ def load_dataset():
 
 def argparsing():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "strategy",
-        nargs="?",
-        default="run",
-        choices=["contrastive", "triplet"])
     parser.add_argument("--epoch", default=0, type=int)
+    parser.add_argument("--max-epochs", default=1000, type=int)
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--threads", type=int, default=None)
     parser.add_argument("--period", type=int, default=3)
+    parser.add_argument("--lr", default=0.05)
+    parser.add_argument("--save-to", default=".cache/keras")
+    parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
+
+    parser.add_argument("--training-file", default=TRAINING_DAT)
+    parser.add_argument("--validation-file", default=TEST_DAT)
+    parser.add_argument("--download-dataset", action="store_true", default=False)
+
+    parser.add_argument("--validation-batch-size", type=int, default=32)
+    subparsers = parser.add_subparsers(title="models", dest="model")
+    subparsers.required = True
+
+    # Char CNN
+    cnn = subparsers.add_parser("cnn")
+    cnn_subparsers = cnn.add_subparsers(title="losses", dest="loss")
+    cnn_subparsers.required = True
+
+    cnn_triplet = cnn_subparsers.add_parser("triplet")
+    cnn_contrastive = cnn_subparsers.add_parser("contrastive")
+
+    cnn.add_argument("--char-embedding-size", type=int, default=70)
+    cnn.add_argument("--embedding-size", type=int, default=20)
+    cnn.add_argument("--dropout-conv", type=float, default=0.1)
+    cnn.add_argument("--dropout-fc", type=float, default=0.5)
+    cnn.add_argument("--input-crop", type=int, default=768)
+
+    cnn_triplet.add_argument("--margin", required=True, type=float)
+    cnn_triplet.add_argument("--classes-per-batch", type=int, default=24)
+    cnn_triplet.add_argument("--samples-per-class", type=int, default=8)
+    cnn_triplet.set_defaults(func=run_triplet_cnn)
+
+    cnn_contrastive.add_argument("--margin", required=True, type=float)
+    cnn_contrastive.add_argument("--batch-size", type=int, default=32)
+    cnn_contrastive.set_defaults(func=run_contrastive_cnn)
+
+    # Code LSTM
+    lstm = subparsers.add_parser("lstm")
+    lstm_subparsers = lstm.add_subparsers(title="losses", dest="loss")
+    lstm_subparsers.required = True
+
+    lstm_triplet = lstm_subparsers.add_parser("triplet")
+
+    lstm.add_argument("--char-embedding-size", type=int, default=70)
+    lstm.add_argument("--embedding-size", type=int, default=20)
+    lstm.add_argument("--char-capacity", type=int, default=32)
+    lstm.add_argument("--line-capacity", type=int, default=32)
+
+    lstm_triplet.add_argument("--margin", required=True, type=float)
 
     return parser.parse_args()
+
+
+def setup_callbacks(args, checkpoint):
+    tb_dir = os.path.join(args.tensorboard_dir, args.model, args.loss or "unknown", args.name)
+    tb = TensorBoard(log_dir=tb_dir)
+    cp = ModelCheckpoint(checkpoint, period=args.period)
+    return [tb, cp]
+
+
+def build_scpd_model(nn, path=None):
+    if path is None:
+        nn.build()
+    else:
+        nn.model = load_model(path, nn.loader_objects())
+
+
+def run_triplet_lstm(args, training_sources, validation_sources, load=None, callbacks=[]):
+    pass
+
+
+def run_contrastive_cnn(args, training_sources, validation_sources, load=None, callbacks=[]):
+    pass
+
+
+def run_triplet_cnn(args, training_sources, validation_sources, load=None, callbacks=[]):
+    random.shuffle(training_sources)
+
+    training_generator = CodeForTripletGenerator(
+        training_sources,
+        classes_per_batch=args.classes_per_batch,
+        samples_per_class=args.samples_per_class,
+        input_size=args.input_crop)
+
+    validation_pairs = make_pairs(validation_sources, k1=1000, k2=1000)
+    random.shuffle(validation_pairs)
+
+    validation_sequence = FlatCodePairSequence(
+            validation_pairs, batch_size=args.validation_batch_size, input_size=args.input_crop)
+
+    optimizer = Adam(lr=args.lr)
+    nn = TripletCharCNN(
+            args.input_crop,
+            len(ALPHABET) + 1,
+            embedding_size=args.char_embedding_size,
+            output_size=args.embedding_size,
+            dropout_conv=args.dropout_conv,
+            dropout_fc=args.dropout_fc,
+            margin=args.margin,
+            optimizer=optimizer,
+            metric="precision")
+
+    build_scpd_model(nn)
+    nn.compile()
+    print(nn.model.summary())
+
+    val_threshold_metric = FlatPairValidationMetric(
+        np.linspace(0.0, 2.0, 40),
+        id="thresholded",
+        metric=["precision", "accuracy"],
+        argmax=["accuracy"])
+    val_margin_metric = FlatPairValidationMetric(
+        args.margin, id="margin", metric=["f1", "precision", "accuracy"])
+    om = OfflineMetrics(
+        on_epoch=[val_threshold_metric, val_margin_metric],
+        validation_data=validation_sequence)
+
+    nn.train(
+        training_generator(),
+        callbacks=[om] + callbacks,
+        epochs=args.max_epochs,
+        steps_per_epoch=len(training_generator),
+        initial_epoch=args.epoch)
+
+
+def main(args):
+    os.makedirs(args.save_to, exist_ok=True)
+    checkpoint = os.path.join(args.save_to, "{model}.{loss}.{name}.{{epoch:04d}}.h5").format(model=args.model, loss=(args.loss or "unknown"), name=args.name)
+    to_load = checkpoint.format(epoch=args.epoch)
+    callbacks = setup_callbacks(args, checkpoint)
+    training_sources, validation_sources = load_dataset(args)
+
+    if not os.path.isfile(to_load):
+        if args.epoch > 0:
+            raise AssertionError("checkpoint for epoch {} was not found".format(args.epoch))
+        to_load = None
+
+    if args.func is None:
+        raise NotImplementedError()
+
+    args.func(args, training_sources, validation_sources, load=to_load, callbacks=callbacks)
 
 
 if __name__ == "__main__":
     args = argparsing()
     configure(args)
+
+    import sys
+    main(args)
+    sys.exit(0)
+
+    #
+    #
+    #
 
     INPUT_SIZE = 768
     BATCH_SIZE = 32
@@ -258,7 +400,10 @@ if __name__ == "__main__":
     cp = ModelCheckpoint(
         CHECKPOINT, period=args.period, save_weights_only=False)
     os.makedirs(".cache/keras", exist_ok=True)
-    training_sources, test_sources = load_dataset()
+    training_sources, test_sources = load_dataset(args)
+
+    test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
+    random.shuffle(test_pairs)
 
     if args.strategy == "contrastive":
         training_pairs = make_pairs(training_sources, k1=10000, k2=10000)
@@ -266,8 +411,6 @@ if __name__ == "__main__":
         training_sequence = CodePairSequence(
             training_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
-        test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
-        random.shuffle(test_pairs)
         test_sequence = CodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
@@ -314,8 +457,6 @@ if __name__ == "__main__":
             samples_per_class=8,
             input_size=INPUT_SIZE)
 
-        test_pairs = make_pairs(test_sources, k1=1000, k2=1000)
-        random.shuffle(test_pairs)
         test_sequence = FlatCodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 

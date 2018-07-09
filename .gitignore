@@ -7,4 +7,5 @@ __pycache__/
 *.swo
 *.swn
 *.pkl.gz
+*.pdf
 venv/
