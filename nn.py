@@ -292,7 +292,7 @@ if __name__ == "__main__":
     tb = TensorBoard(
         log_dir="/opt/tensorboard/{}/{}".format(args.strategy, args.name))
     cp = ModelCheckpoint(
-        CHECKPOINT, period=args.period, save_weights_only=True)
+        CHECKPOINT, period=args.period, save_weights_only=False)
     os.makedirs(".cache/keras", exist_ok=True)
     training_sources, test_sources = load_dataset()
 
