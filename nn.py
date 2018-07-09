@@ -360,7 +360,8 @@ if __name__ == "__main__":
         test_sequence = FlatCodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
-        optimizer = Adam(lr=0.08)
+        margin = 0.2
+        optimizer = Adam(lr=0.05)
         nn = TripletCharCNN(
             INPUT_SIZE,
             len(ALPHABET) + 1,
@@ -368,7 +369,7 @@ if __name__ == "__main__":
             output_size=20,
             dropout_conv=0.1,
             dropout_fc=0.5,
-            margin=1.0,
+            margin=margin,
             optimizer=optimizer,
             metric="precision")
 
@@ -382,12 +383,16 @@ if __name__ == "__main__":
         nn.compile()
         print(nn.model.summary())
 
-        val_metric = FlatPairValidationMetric(
+        val_threshold_metric = FlatPairValidationMetric(
             np.linspace(0.0, 2.0, 40),
-            metric=["f1", "precision", "accuracy"],
+            id="thresholded",
+            metric=["precision", "accuracy"],
             argmax=["accuracy"])
+        val_margin_metric = FlatPairValidationMetric(
+            margin, id="margin", metric=["f1", "precision", "accuracy"])
         om = OfflineMetrics(
-            on_epoch=[val_metric], validation_data=test_sequence)
+            on_epoch=[val_threshold_metric, val_margin_metric],
+            validation_data=test_sequence)
 
         nn.train(
             training_generator(),

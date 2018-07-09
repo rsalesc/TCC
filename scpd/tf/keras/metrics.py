@@ -263,14 +263,14 @@ class OfflineMetric:
 
 
 class SimilarityValidationMetric(OfflineMetric):
-    def __init__(self, margin, *args, metric=["accuracy"], argmax=[],
+    def __init__(self, margin, *args, id="sim", metric=["accuracy"], argmax=[],
                  **kwargs):
         self._margin = np.array(margin)
         assert len(argmax) == 0 or self._margin.ndim == 1
         self._metric = metric if isinstance(metric, list) else [metric]
         self._argmax = argmax if isinstance(argmax, list) else [argmax]
         self._scorer = None
-        self._id = "sim"
+        self._id = id
         super().__init__(self, *args, **kwargs)
 
     def name(self):
@@ -292,27 +292,24 @@ class SimilarityValidationMetric(OfflineMetric):
 
 
 class TripletValidationMetric(SimilarityValidationMetric):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._id = "triplet"
+    def __init__(self, id="triplet", *args, **kwargs):
+        super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
         self._scorer = TripletBatchScorer(self._margin)
 
 
 class ContrastiveValidationMetric(SimilarityValidationMetric):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._id = "contrastive"
+    def __init__(self, id="contrastive", *args, **kwargs):
+        super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
         self._scorer = ContrastiveBatchScorer(self._margin)
 
 
 class FlatPairValidationMetric(SimilarityValidationMetric):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._id = "fpair"
+    def __init__(self, id="fpair", *args, **kwargs):
+        super().__init__(*args, id=id, **kwargs)
 
     def reset(self):
         self._scorer = FlatPairBatchScorer(self._margin)
