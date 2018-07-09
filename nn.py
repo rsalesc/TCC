@@ -360,7 +360,7 @@ if __name__ == "__main__":
         test_sequence = FlatCodePairSequence(
             test_pairs, batch_size=BATCH_SIZE, input_size=INPUT_SIZE)
 
-        optimizer = Adam(lr=0.5, decay=0.008)
+        optimizer = Adam(lr=0.08)
         nn = TripletCharCNN(
             INPUT_SIZE,
             len(ALPHABET) + 1,

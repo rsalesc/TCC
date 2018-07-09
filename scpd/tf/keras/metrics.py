@@ -185,22 +185,28 @@ class ContrastiveBatchScorer(BatchScorer):
         super().__init__(*args, **kwargs)
 
     def score(self, y_true, y_pred, metric):
-        return self._sess.run(
-            contrastive_score(
-                tf.convert_to_tensor(y_true, tf.float32),
-                tf.convert_to_tensor(y_pred, tf.float32),
-                tf.convert_to_tensor(self._margin, tf.float32),
-                metric=metric))
+        graph = tf.Graph()
+        with self._sess.as_default():
+            with graph.as_default():
+                return self._sess.run(
+                    contrastive_score(
+                        tf.convert_to_tensor(y_true, tf.float32),
+                        tf.convert_to_tensor(y_pred, tf.float32),
+                        tf.convert_to_tensor(self._margin, tf.float32),
+                        metric=metric))
 
 
 class TripletBatchScorer(ContrastiveBatchScorer):
     def score(self, y_true, y_pred, metric):
-        return self._sess.run(
-            triplet_score(
-                tf.convert_to_tensor(y_true, tf.float32),
-                tf.convert_to_tensor(y_pred, tf.float32),
-                tf.convert_to_tensor(self._margin, tf.float32),
-                metric=metric))
+        graph = tf.Graph()
+        with self._sess.as_default():
+            with graph.as_default():
+                return self._sess.run(
+                    triplet_score(
+                        tf.convert_to_tensor(y_true, tf.float32),
+                        tf.convert_to_tensor(y_pred, tf.float32),
+                        tf.convert_to_tensor(self._margin, tf.float32),
+                        metric=metric))
 
 
 class FlatPairBatchScorer(ContrastiveBatchScorer):
