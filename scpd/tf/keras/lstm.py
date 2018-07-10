@@ -68,12 +68,12 @@ class TripletLineLSTM(BaseModel):
 
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
-        x = Embedding(
-            self._alphabet_size + 1,
-            self._embedding_size)(input)
+        x = Embedding(self._alphabet_size + 1, self._embedding_size)(input)
 
-        x = TimeDistributed(LSTM(self._char_capacity, dropout=self._dropout_char))(x)
-        x = Bidirectional(LSTM(self._line_capacity, dropout=self._line_capacity))(x)
+        x = TimeDistributed(
+            LSTM(self._char_capacity, dropout=self._dropout_char))(x)
+        x = Bidirectional(
+            LSTM(self._line_capacity, dropout=self._line_capacity))(x)
         x = Dense(self._output_size, activation=None)(x)
         x = Lambda(l2_normalization)(x)
 

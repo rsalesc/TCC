@@ -240,7 +240,8 @@ def argparsing():
 
     parser.add_argument("--training-file", default=TRAINING_DAT)
     parser.add_argument("--validation-file", default=TEST_DAT)
-    parser.add_argument("--download-dataset", action="store_true", default=False)
+    parser.add_argument(
+        "--download-dataset", action="store_true", default=False)
 
     parser.add_argument("--validation-batch-size", type=int, default=32)
     subparsers = parser.add_subparsers(title="models", dest="model")
@@ -287,7 +288,8 @@ def argparsing():
 
 
 def setup_callbacks(args, checkpoint):
-    tb_dir = os.path.join(args.tensorboard_dir, args.model, args.loss or "unknown", args.name)
+    tb_dir = os.path.join(args.tensorboard_dir, args.model, args.loss
+                          or "unknown", args.name)
     tb = TensorBoard(log_dir=tb_dir)
     cp = ModelCheckpoint(checkpoint, period=args.period)
     return [tb, cp]
@@ -300,15 +302,27 @@ def build_scpd_model(nn, path=None):
         nn.model = load_model(path, nn.loader_objects())
 
 
-def run_triplet_lstm(args, training_sources, validation_sources, load=None, callbacks=[]):
+def run_triplet_lstm(args,
+                     training_sources,
+                     validation_sources,
+                     load=None,
+                     callbacks=[]):
     pass
 
 
-def run_contrastive_cnn(args, training_sources, validation_sources, load=None, callbacks=[]):
+def run_contrastive_cnn(args,
+                        training_sources,
+                        validation_sources,
+                        load=None,
+                        callbacks=[]):
     pass
 
 
-def run_triplet_cnn(args, training_sources, validation_sources, load=None, callbacks=[]):
+def run_triplet_cnn(args,
+                    training_sources,
+                    validation_sources,
+                    load=None,
+                    callbacks=[]):
     random.shuffle(training_sources)
 
     training_generator = CodeForTripletGenerator(
@@ -321,19 +335,21 @@ def run_triplet_cnn(args, training_sources, validation_sources, load=None, callb
     random.shuffle(validation_pairs)
 
     validation_sequence = FlatCodePairSequence(
-            validation_pairs, batch_size=args.validation_batch_size, input_size=args.input_crop)
+        validation_pairs,
+        batch_size=args.validation_batch_size,
+        input_size=args.input_crop)
 
     optimizer = Adam(lr=args.lr)
     nn = TripletCharCNN(
-            args.input_crop,
-            len(ALPHABET) + 1,
-            embedding_size=args.char_embedding_size,
-            output_size=args.embedding_size,
-            dropout_conv=args.dropout_conv,
-            dropout_fc=args.dropout_fc,
-            margin=args.margin,
-            optimizer=optimizer,
-            metric="precision")
+        args.input_crop,
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        dropout_conv=args.dropout_conv,
+        dropout_fc=args.dropout_fc,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric="precision")
 
     build_scpd_model(nn)
     nn.compile()
@@ -360,20 +376,30 @@ def run_triplet_cnn(args, training_sources, validation_sources, load=None, callb
 
 def main(args):
     os.makedirs(args.save_to, exist_ok=True)
-    checkpoint = os.path.join(args.save_to, "{model}.{loss}.{name}.{{epoch:04d}}.h5").format(model=args.model, loss=(args.loss or "unknown"), name=args.name)
+    checkpoint = os.path.join(args.save_to,
+                              "{model}.{loss}.{name}.{{epoch:04d}}.h5").format(
+                                  model=args.model,
+                                  loss=(args.loss or "unknown"),
+                                  name=args.name)
     to_load = checkpoint.format(epoch=args.epoch)
     callbacks = setup_callbacks(args, checkpoint)
     training_sources, validation_sources = load_dataset(args)
 
     if not os.path.isfile(to_load):
         if args.epoch > 0:
-            raise AssertionError("checkpoint for epoch {} was not found".format(args.epoch))
+            raise AssertionError(
+                "checkpoint for epoch {} was not found".format(args.epoch))
         to_load = None
 
     if args.func is None:
         raise NotImplementedError()
 
-    args.func(args, training_sources, validation_sources, load=to_load, callbacks=callbacks)
+    args.func(
+        args,
+        training_sources,
+        validation_sources,
+        load=to_load,
+        callbacks=callbacks)
 
 
 if __name__ == "__main__":
