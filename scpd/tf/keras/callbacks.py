@@ -1,5 +1,5 @@
-from tensorflow.python.keras.callbacks import Callback
-from tensorflow.python.keras.utils import Sequence
+from keras.callbacks import Callback
+from keras.utils import Sequence
 
 
 def _build_dict(sequence):

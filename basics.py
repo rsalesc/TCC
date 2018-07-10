@@ -6,9 +6,9 @@ import os
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.decomposition import PCA
-from tensorflow.python.keras.models import load_model
-from tensorflow.python.keras.utils import Sequence
-from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
+from keras.models import load_model
+from keras.utils import Sequence
+from keras.callbacks import TensorBoard, ModelCheckpoint
 
 from scpd import source
 from scpd.utils import ObjectPairing

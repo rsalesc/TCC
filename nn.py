@@ -5,14 +5,15 @@ import random
 import string
 import os
 from bisect import bisect
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.models import load_model
-from tensorflow.python.keras.utils import Sequence
-from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint
-from tensorflow.python.keras.optimizers import Adam
+from keras import backend as K
+from keras.models import load_model
+from keras.utils import Sequence
+from keras.callbacks import ModelCheckpoint
+from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
 from sklearn.preprocessing import LabelEncoder
 
-from scpd.utils import ObjectPairing
+from scpd.utils import ObjectPairing, opens
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.metrics import (TripletValidationMetric,
@@ -212,6 +213,22 @@ def make_pairs(dataset, k1, k2):
     return pairs
 
 
+def load_embedding_dataset(args):
+    random.seed(MAGICAL_SEED)
+
+    builder = CodeforcesDatasetBuilder(
+        training_size=None,
+        test_size=None,
+        training_file=args.embedding_file,
+        test_file=None,
+        submissions_per_user=None,
+        training_only=True,
+        download=args.download_dataset)
+
+    sources, _ = builder.extract_raw()
+    return sources
+
+
 def load_dataset(args):
     random.seed(MAGICAL_SEED)
 
@@ -240,6 +257,8 @@ def argparsing():
 
     parser.add_argument("--training-file", default=TRAINING_DAT)
     parser.add_argument("--validation-file", default=TEST_DAT)
+    parser.add_argument("--embedding-file", default=TEST_DAT)
+    parser.add_argument("--embedding-period", type=int, default=3)
     parser.add_argument(
         "--download-dataset", action="store_true", default=False)
 
@@ -265,6 +284,7 @@ def argparsing():
     cnn_triplet.add_argument("--classes-per-batch", type=int, default=24)
     cnn_triplet.add_argument("--samples-per-class", type=int, default=8)
     cnn_triplet.set_defaults(func=run_triplet_cnn)
+    cnn_triplet.set_defaults(emb_func=get_embedding_triplet_cnn)
 
     cnn_contrastive.add_argument("--margin", required=True, type=float)
     cnn_contrastive.add_argument("--batch-size", type=int, default=32)
@@ -287,19 +307,52 @@ def argparsing():
     return parser.parse_args()
 
 
+def setup_tensorboard(args, nn):
+    tb_dir = os.path.abspath(os.path.join(args.tensorboard_dir,
+                             args.model, args.loss
+                             or "unknown", args.name))
+    params = {"log_dir": tb_dir}
+    print("Logging TensorBoard to {}...".format(tb_dir))
+    if args.embedding_file is not None:
+        layer_names = nn.embeddings_to_watch()
+
+        if len(layer_names) > 0 and args.emb_func is not None:
+            print("Projecting embeddings...")
+            metadata_path = os.path.join(tb_dir, ".embeddings/out.tsv")
+
+            params["embeddings_freq"] = args.embedding_period
+            metadata = {}
+            for name in layer_names:
+                metadata[name] = metadata_path
+
+            params["embeddings_layer_names"] = layer_names
+            params["embeddings_metadata"] = os.path.relpath(metadata_path, start=tb_dir)
+
+            x, labels, headers = args.emb_func(args)
+            params["embeddings_data"] = x
+
+            with opens(metadata_path, "w", encoding="utf-8") as f:
+                if headers is not None and len(headers) > 1:
+                    f.write("\t".join(headers) + "\n")
+                lines = []
+                for entry in labels:
+                    lines.append("\t".join(entry))
+
+                f.write("\n".join(lines))
+
+    return TensorBoard(**params)
+
+
 def setup_callbacks(args, checkpoint):
-    tb_dir = os.path.join(args.tensorboard_dir, args.model, args.loss
-                          or "unknown", args.name)
-    tb = TensorBoard(log_dir=tb_dir)
     cp = ModelCheckpoint(checkpoint, period=args.period)
-    return [tb, cp]
+    return [cp]
 
 
 def build_scpd_model(nn, path=None):
     if path is None:
         nn.build()
     else:
-        nn.model = load_model(path, nn.loader_objects())
+        nn.model = load_model(path, nn.loader_objects(), compile=False)
 
 
 def run_triplet_lstm(args,
@@ -316,6 +369,13 @@ def run_contrastive_cnn(args,
                         load=None,
                         callbacks=[]):
     pass
+
+
+def get_embedding_triplet_cnn(args):
+    sources = load_embedding_dataset(args)
+    labels = list(map(lambda x: [x.author()], sources))
+    x = extract_batch_x(sources, input_size=args.input_crop)
+    return x, labels, ["author"]
 
 
 def run_triplet_cnn(args,
@@ -365,10 +425,11 @@ def run_triplet_cnn(args,
     om = OfflineMetrics(
         on_epoch=[val_threshold_metric, val_margin_metric],
         validation_data=validation_sequence)
+    tb = setup_tensorboard(args, nn)
 
     nn.train(
         training_generator(),
-        callbacks=[om] + callbacks,
+        callbacks=[om, tb] + callbacks,
         epochs=args.max_epochs,
         steps_per_epoch=len(training_generator),
         initial_epoch=args.epoch)

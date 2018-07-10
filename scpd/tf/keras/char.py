@@ -1,13 +1,13 @@
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.utils import Sequence
-from tensorflow.python.keras.models import Model, Sequential
-from tensorflow.python.keras.layers import (Input, Dense, Flatten, Lambda,
+from keras import backend as K
+from keras.utils import Sequence
+from keras.models import Model, Sequential
+from keras.layers import (Input, Dense, Flatten, Lambda,
                                             Embedding)
-from tensorflow.python.keras.layers import Convolution1D, MaxPooling1D
-from tensorflow.python.keras.layers import BatchNormalization
-from tensorflow.python.keras.layers import Dropout
-from tensorflow.python.keras.optimizers import Adam
+from keras.layers import Convolution1D, MaxPooling1D
+from keras.layers import BatchNormalization, Activation
+from keras.layers import Dropout
+from keras.optimizers import Adam
 
 from .common import (contrastive_loss, l2_normalization, euclidean_distance,
                      triplet_loss)
@@ -170,5 +170,9 @@ class TripletCharCNN(SimilarityCharCNN):
     def build(self):
         x = Input(shape=self.input_shape())
         embeddings = self.SiamesisNetwork()(x)
+        identity = Activation("linear", name="output_embedding")(embeddings)
 
-        self.model = Model(x, embeddings)
+        self.model = Model(x, identity)
+
+    def embeddings_to_watch(self):
+        return ["output_embedding"]

@@ -1,9 +1,9 @@
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.layers import (Input, Dense, LSTM, Lambda,
+from keras import backend as K
+from keras.models import Model
+from keras.layers import (Input, Dense, LSTM, Lambda,
                                             Embedding)
-from tensorflow.python.keras.layers import TimeDistributed, Bidirectional
+from keras.layers import TimeDistributed, Bidirectional
 
 from .common import (l2_normalization, triplet_loss)
 from .base import BaseModel
