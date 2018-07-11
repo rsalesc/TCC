@@ -31,6 +31,8 @@ class SimilarityCharCNN(BaseModel):
                  **kwargs):
         super().__init__(*args, **kwargs)
         assert optimizer is not None
+        if not isinstance(metric, list):
+            metric = [metric]
         self._input_size = input_size
         self._alphabet_size = alphabet_size
         self._dropout_conv = dropout_conv
@@ -41,18 +43,20 @@ class SimilarityCharCNN(BaseModel):
 
         self._margin = margin
         self._contrastive_loss_fn = contrastive_loss(margin)
-        self._metric = ContrastiveOnKerasMetric(
-            metric_margin or margin, metric=metric)
+        self._metric = list(map(lambda x: ContrastiveOnKerasMetric(
+                            metric_margin or margin, metric=x), metric))
 
     def input_shape(self):
         return (self._input_size, )
 
     def loader_objects(self):
-        return {
+        res = {
             "tf": tf,
-            "contrastive_loss": self._contrastive_loss_fn,
-            self._metric.__name__: self._metric
+            "contrastive_loss": self._contrastive_loss_fn
         }
+        for metric in self._metric:
+            res[metric.__name__] = metric
+        return res
 
     def build(self):
         x1 = Input(shape=self.input_shape())
@@ -71,7 +75,7 @@ class SimilarityCharCNN(BaseModel):
         self.model.compile(
             loss=contrastive_loss,
             optimizer=self._optimizer,
-            metrics=[self._metric])
+            metrics=self._metric)
 
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
@@ -146,18 +150,22 @@ class SimilarityCharCNN(BaseModel):
 class TripletCharCNN(SimilarityCharCNN):
     def __init__(self, *args, metric="accuracy", metric_margin=None, **kwargs):
         super().__init__(*args, **kwargs)
-        assert metric is not None
+        if not isinstance(metric, list):
+            metric = [metric]
+
         self._triplet_loss_fn = triplet_loss(self._margin)
-        self._metric = TripletOnKerasMetric(
-            self._margin if metric_margin is None else metric_margin,
-            metric=metric)
+        self._metric = list(map(lambda x: TripletOnKerasMetric(
+                            metric_margin or self._margin, metric=x), metric))
 
     def loader_objects(self):
-        return {
+        res = {
             "tf": tf,
-            "triplet_loss": self._triplet_loss_fn,
-            self._metric.__name__: self._metric
+            "triplet_loss": self._triplet_loss_fn
         }
+
+        for metric in self._metric:
+            res[metric.__name__] = metric
+        return res
 
     def compile(self):
         triplet_loss = self._triplet_loss_fn
@@ -165,7 +173,7 @@ class TripletCharCNN(SimilarityCharCNN):
         self.model.compile(
             loss=triplet_loss,
             optimizer=self._optimizer,
-            metrics=[self._metric])
+            metrics=self._metric)
 
     def build(self):
         x = Input(shape=self.input_shape())

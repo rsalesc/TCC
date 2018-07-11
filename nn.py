@@ -4,6 +4,7 @@ import numpy as np
 import random
 import string
 import os
+import shutil
 from bisect import bisect
 from keras import backend as K
 from keras.models import load_model
@@ -254,6 +255,7 @@ def argparsing():
     parser.add_argument("--lr", default=0.05)
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
+    parser.add_argument("--reset-tensorboard", action="store_true", default=False)
 
     parser.add_argument("--training-file", default=TRAINING_DAT)
     parser.add_argument("--validation-file", default=TEST_DAT)
@@ -275,7 +277,7 @@ def argparsing():
     cnn_contrastive = cnn_subparsers.add_parser("contrastive")
 
     cnn.add_argument("--char-embedding-size", type=int, default=70)
-    cnn.add_argument("--embedding-size", type=int, default=20)
+    cnn.add_argument("--embedding-size", type=int, default=128)
     cnn.add_argument("--dropout-conv", type=float, default=0.1)
     cnn.add_argument("--dropout-fc", type=float, default=0.5)
     cnn.add_argument("--input-crop", type=int, default=768)
@@ -308,9 +310,13 @@ def argparsing():
 
 
 def setup_tensorboard(args, nn):
+    if not os.path.isdir(args.tensorboard_dir):
+        raise AssertionError("{} does not exist", args.tensorboard_dir)
     tb_dir = os.path.abspath(os.path.join(args.tensorboard_dir,
                              args.model, args.loss
                              or "unknown", args.name))
+    if args.reset_tensorboard or args.epoch == 0:
+        shutil.rmtree(tb_dir)
     params = {"log_dir": tb_dir}
     print("Logging TensorBoard to {}...".format(tb_dir))
     if args.embedding_file is not None:
@@ -409,7 +415,7 @@ def run_triplet_cnn(args,
         dropout_fc=args.dropout_fc,
         margin=args.margin,
         optimizer=optimizer,
-        metric="precision")
+        metric=["precision", "recall"])
 
     build_scpd_model(nn)
     nn.compile()
