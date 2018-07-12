@@ -3,8 +3,9 @@ import tensorflow as tf
 import numpy as np
 import random
 import string
-import os
 import shutil
+import os
+import time
 from bisect import bisect
 from keras import backend as K
 from keras.models import load_model
@@ -14,6 +15,7 @@ from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
 from sklearn.preprocessing import LabelEncoder
 
+from scpd.source import SourceCode
 from scpd.utils import ObjectPairing, opens
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
@@ -30,6 +32,71 @@ def configure(args):
         print("Using {} threads for inter and intra ops.".format(args.threads))
         config.inter_op_parallelism_threads = args.threads
     K.set_session(tf.Session(config=config))
+
+def force_rmtree(root_dir):
+    '''
+    rmtree doesn't work when no write bit in linux or read-only in windows
+    force_rmtree recursively walk, do chmod and then remove
+    '''
+    import stat
+    from os import path, rmdir, remove, chmod, walk
+    for root, dirs, files in walk(root_dir, topdown=False):
+        for name in files:
+            file_path = path.join(root, name)
+            chmod(file_path, stat.S_IWUSR)
+            remove(file_path)
+        for name in dirs:
+            dir_path = path.join(root, name)
+            chmod(dir_path, stat.S_IWUSR)
+            rmdir(dir_path)
+    rmdir(root_dir)
+
+
+def build_alpha(alpha, classes, samples, length):
+    source = string.ascii_lowercase[:6]
+    assert alpha <= 6
+
+    sources = []
+    for i in range(classes):
+        candidates = np.random.randint(0, 6, alpha)
+        for j in range(samples):
+            chars = []
+            for k in range(random.randint(1, length)):
+                chars.append(source[np.random.choice(candidates)])
+            code = "".join(chars)
+            sources.append(SourceCode("guy_{}".format(i), code))
+
+    return sources
+
+
+def build_single_alpha(samples, length):
+    sources = []
+    for c in string.ascii_lowercase:
+        for j in range(samples):
+            code = "".join([c] * random.randint(1, length))
+            sources.append(SourceCode("guy_{}".format(c), code))
+    return sources
+
+
+class PerIterationTensorBoard(TensorBoard):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._iterations = 0
+
+    def on_batch_end(self, batch, logs=None):
+        super().on_batch_end(batch, logs)
+
+        logs = logs or {}
+        self._iterations += 1
+        for name, value in logs.items():
+            if name in ['batch', 'size']:
+                continue
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = value.item()
+            summary_value.tag = name + "_iterations"
+            self.writer.add_summary(summary, self._iterations)
+        self.writer.flush()
 
 
 class CodePairSequence(Sequence):
@@ -202,7 +269,7 @@ def extract_pair_batch_features(batch, input_size=None):
 def extract_flat_pair_batch_features(batch, input_size=None):
     x, y = extract_pair_batch_features(batch, input_size=input_size)
     x = np.array(x)
-    x = np.transpose(x, (1, 0, 2)).reshape((x.shape[1] * 2, -1))
+    x = x.reshape((x.shape[1] * 2, -1))
     return x, y
 
 
@@ -215,7 +282,12 @@ def make_pairs(dataset, k1, k2):
 
 
 def load_embedding_dataset(args):
-    random.seed(MAGICAL_SEED)
+    random.seed(42 * MAGICAL_SEED)
+
+    if args.procedural_dataset == "alpha":
+        return build_alpha(3, 12, 40, args.input_crop)
+    if args.procedural_dataset == "single":
+        return build_single_alpha(20, args.input_crop)
 
     builder = CodeforcesDatasetBuilder(
         training_size=None,
@@ -233,6 +305,11 @@ def load_embedding_dataset(args):
 def load_dataset(args):
     random.seed(MAGICAL_SEED)
 
+    if args.procedural_dataset == "alpha":
+        return build_alpha(3, 400, 40, args.input_crop), build_alpha(3, 12, 40, args.input_crop)
+    if args.procedural_dataset == "single":
+        return build_single_alpha(50, args.input_crop), build_single_alpha(20, args.input_crop)
+
     builder = CodeforcesDatasetBuilder(
         training_size=None,
         test_size=None,
@@ -241,8 +318,8 @@ def load_dataset(args):
         submissions_per_user=None,
         download=args.download_dataset)
 
-    training_sources, test_sources = builder.extract_raw()
-    return training_sources, test_sources
+    training_sources, validation_sources = builder.extract_raw()
+    return training_sources, validation_sources
 
 
 def argparsing():
@@ -252,8 +329,10 @@ def argparsing():
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--threads", type=int, default=None)
     parser.add_argument("--period", type=int, default=3)
-    parser.add_argument("--lr", default=0.05)
+    parser.add_argument("--eval-every", type=int, default=None)
+    parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--save-to", default=".cache/keras")
+    parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
     parser.add_argument("--reset-tensorboard", action="store_true", default=False)
 
@@ -263,8 +342,9 @@ def argparsing():
     parser.add_argument("--embedding-period", type=int, default=3)
     parser.add_argument(
         "--download-dataset", action="store_true", default=False)
-
     parser.add_argument("--validation-batch-size", type=int, default=32)
+
+    parser.add_argument("--procedural-dataset", choices=["alpha", "single"], default=None)
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
 
@@ -315,11 +395,13 @@ def setup_tensorboard(args, nn):
     tb_dir = os.path.abspath(os.path.join(args.tensorboard_dir,
                              args.model, args.loss
                              or "unknown", args.name))
-    if args.reset_tensorboard or args.epoch == 0:
-        shutil.rmtree(tb_dir)
+    if (args.reset_tensorboard or args.epoch == 0) and os.path.isdir(tb_dir):
+        print("Resetting TensorBoard logs...")
+        shutil.rmtree(tb_dir, ignore_errors=True)
+        time.sleep(5)
     params = {"log_dir": tb_dir}
     print("Logging TensorBoard to {}...".format(tb_dir))
-    if args.embedding_file is not None:
+    if args.embedding_file is not None and args.embedding_period:
         layer_names = nn.embeddings_to_watch()
 
         if len(layer_names) > 0 and args.emb_func is not None:
@@ -346,12 +428,14 @@ def setup_tensorboard(args, nn):
 
                 f.write("\n".join(lines))
 
-    return TensorBoard(**params)
+    return PerIterationTensorBoard(**params)
 
 
 def setup_callbacks(args, checkpoint):
-    cp = ModelCheckpoint(checkpoint, period=args.period)
-    return [cp]
+    res = []
+    if not args.no_checkpoint:
+        res.append(ModelCheckpoint(checkpoint, period=args.period))
+    return res
 
 
 def build_scpd_model(nn, path=None):
@@ -415,7 +499,7 @@ def run_triplet_cnn(args,
         dropout_fc=args.dropout_fc,
         margin=args.margin,
         optimizer=optimizer,
-        metric=["precision", "recall"])
+        metric=["precision", "recall", "accuracy"])
 
     build_scpd_model(nn)
     nn.compile()
@@ -437,7 +521,7 @@ def run_triplet_cnn(args,
         training_generator(),
         callbacks=[om, tb] + callbacks,
         epochs=args.max_epochs,
-        steps_per_epoch=len(training_generator),
+        steps_per_epoch=args.eval_every or len(training_generator),
         initial_epoch=args.epoch)
 
 
