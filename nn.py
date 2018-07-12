@@ -335,6 +335,7 @@ def argparsing():
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
     parser.add_argument("--reset-tensorboard", action="store_true", default=False)
+    parser.add_argument("--threshold-granularity", type=int, default=256)
 
     parser.add_argument("--training-file", default=TRAINING_DAT)
     parser.add_argument("--validation-file", default=TEST_DAT)
@@ -506,7 +507,7 @@ def run_triplet_cnn(args,
     print(nn.model.summary())
 
     val_threshold_metric = FlatPairValidationMetric(
-        np.linspace(0.0, 2.0, 40),
+        np.linspace(0.0, 2.0, args.threshold_granularity),
         id="thresholded",
         metric=["precision", "accuracy"],
         argmax=["accuracy"])
