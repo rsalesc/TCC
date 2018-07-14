@@ -48,7 +48,7 @@ class OfflineMetrics(Callback):
             pred = self.model.predict_on_batch(x)
             for metric in self._on_epoch.values():
                 metric.handle_batch(self.model, x, y, pred)
-        
+
         for names, metric in self._on_epoch.items():
             res = metric.result()
             assert len(res) == len(names)

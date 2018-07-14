@@ -2,8 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 from keras.utils import Sequence
 from keras.models import Model, Sequential
-from keras.layers import (Input, Dense, Flatten, Lambda,
-                                            Embedding)
+from keras.layers import (Input, Dense, Flatten, Lambda, Embedding)
 from keras.layers import Convolution1D, MaxPooling1D
 from keras.layers import BatchNormalization, Activation
 from keras.layers import Dropout
@@ -50,10 +49,7 @@ class SimilarityCharCNN(BaseModel):
         return (self._input_size, )
 
     def loader_objects(self):
-        res = {
-            "tf": tf,
-            "contrastive_loss": self._contrastive_loss_fn
-        }
+        res = {"tf": tf, "contrastive_loss": self._contrastive_loss_fn}
         for metric in self._metric:
             res[metric.__name__] = metric
         return res
@@ -158,10 +154,7 @@ class TripletCharCNN(SimilarityCharCNN):
                             metric_margin or self._margin, metric=x), metric))
 
     def loader_objects(self):
-        res = {
-            "tf": tf,
-            "triplet_loss": self._triplet_loss_fn
-        }
+        res = {"tf": tf, "triplet_loss": self._triplet_loss_fn}
 
         for metric in self._metric:
             res[metric.__name__] = metric
@@ -171,9 +164,7 @@ class TripletCharCNN(SimilarityCharCNN):
         triplet_loss = self._triplet_loss_fn
 
         self.model.compile(
-            loss=triplet_loss,
-            optimizer=self._optimizer,
-            metrics=self._metric)
+            loss=triplet_loss, optimizer=self._optimizer, metrics=self._metric)
 
     def build(self):
         x = Input(shape=self.input_shape())

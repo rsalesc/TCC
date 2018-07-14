@@ -12,6 +12,5 @@ class BaseModel:
     def test(self, x, y, batch_size=32, *args, **kwargs):
         self.model.evaluate(x, y, batch_size, *args, **kwargs)
 
-
     def embeddings_to_watch(self):
-    	return []
+        return []

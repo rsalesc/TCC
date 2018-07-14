@@ -33,6 +33,7 @@ def configure(args):
         config.inter_op_parallelism_threads = args.threads
     K.set_session(tf.Session(config=config))
 
+
 def force_rmtree(root_dir):
     '''
     rmtree doesn't work when no write bit in linux or read-only in windows
@@ -306,9 +307,11 @@ def load_dataset(args):
     random.seed(MAGICAL_SEED)
 
     if args.procedural_dataset == "alpha":
-        return build_alpha(3, 400, 40, args.input_crop), build_alpha(3, 12, 40, args.input_crop)
+        return build_alpha(3, 400, 40, args.input_crop), build_alpha(
+            3, 12, 40, args.input_crop)
     if args.procedural_dataset == "single":
-        return build_single_alpha(50, args.input_crop), build_single_alpha(20, args.input_crop)
+        return build_single_alpha(50, args.input_crop), build_single_alpha(
+            20, args.input_crop)
 
     builder = CodeforcesDatasetBuilder(
         training_size=None,
@@ -334,7 +337,8 @@ def argparsing():
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
-    parser.add_argument("--reset-tensorboard", action="store_true", default=False)
+    parser.add_argument(
+        "--reset-tensorboard", action="store_true", default=False)
     parser.add_argument("--threshold-granularity", type=int, default=256)
 
     parser.add_argument("--training-file", default=TRAINING_DAT)
@@ -345,7 +349,8 @@ def argparsing():
         "--download-dataset", action="store_true", default=False)
     parser.add_argument("--validation-batch-size", type=int, default=32)
 
-    parser.add_argument("--procedural-dataset", choices=["alpha", "single"], default=None)
+    parser.add_argument(
+        "--procedural-dataset", choices=["alpha", "single"], default=None)
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
 
@@ -393,9 +398,9 @@ def argparsing():
 def setup_tensorboard(args, nn):
     if not os.path.isdir(args.tensorboard_dir):
         raise AssertionError("{} does not exist", args.tensorboard_dir)
-    tb_dir = os.path.abspath(os.path.join(args.tensorboard_dir,
-                             args.model, args.loss
-                             or "unknown", args.name))
+    tb_dir = os.path.abspath(
+        os.path.join(args.tensorboard_dir, args.model, args.loss or "unknown",
+                     args.name))
     if (args.reset_tensorboard or args.epoch == 0) and os.path.isdir(tb_dir):
         print("Resetting TensorBoard logs...")
         shutil.rmtree(tb_dir, ignore_errors=True)
@@ -415,7 +420,8 @@ def setup_tensorboard(args, nn):
                 metadata[name] = metadata_path
 
             params["embeddings_layer_names"] = layer_names
-            params["embeddings_metadata"] = os.path.relpath(metadata_path, start=tb_dir)
+            params["embeddings_metadata"] = os.path.relpath(
+                metadata_path, start=tb_dir)
 
             x, labels, headers = args.emb_func(args)
             params["embeddings_data"] = x

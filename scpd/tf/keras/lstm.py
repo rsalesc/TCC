@@ -1,8 +1,7 @@
 import tensorflow as tf
 from keras import backend as K
 from keras.models import Model
-from keras.layers import (Input, Dense, LSTM, Lambda,
-                                            Embedding)
+from keras.layers import (Input, Dense, LSTM, Lambda, Embedding)
 from keras.layers import TimeDistributed, Bidirectional
 
 from .common import (l2_normalization, triplet_loss)
