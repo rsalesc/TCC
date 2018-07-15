@@ -79,7 +79,7 @@ class TripletLineLSTM(BaseModel):
         return (None, None)
 
     def build(self):
-        x = Input(shape=self.input_shape())
+        x = Input(shape=self.input_shape(), dtype="int32")
         embeddings = self.SiamesisNetwork()(x)
         identity = Activation("linear", name="output")(embeddings)
 
@@ -92,20 +92,22 @@ class TripletLineLSTM(BaseModel):
             loss=triplet_loss, optimizer=self._optimizer, metrics=self._metric)
 
     def SiamesisNetwork(self):
-        input = Input(shape=self.input_shape())
-        x = input
+        input = Input(shape=self.input_shape(), dtype="int32")
 
         x = TimeDistributed(
             Embedding(
-                self._alphabet_size, self._embedding_size, mask_zero=True))(x)
+                self._alphabet_size, self._embedding_size,
+                mask_zero=True))(input)
 
         x = TimeDistributed(
             LSTM(self._char_capacity, dropout=self._dropout_char))(x)
 
         # get mask on original input and apply it to current output
         # (resets whatever mask is being propagated)
-        line_mask = Masking(mask_value=0).compute_mask(input)
-        x = Lambda(lambda x: x, mask=line_mask)(x)
+        x = Lambda(
+            lambda x: x[0],
+            mask=lambda y, _: Masking(mask_value=0).compute_mask(y[1]))(
+                [x, input])
 
         x = Bidirectional(
             LSTM(self._line_capacity, dropout=self._line_capacity))(x)

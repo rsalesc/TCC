@@ -304,7 +304,7 @@ class NeuralFeatureExtractor:
     def extract_flat_pair_batch_features(self, batch):
         x, y = self.extract_pair_batch_features(batch)
         x = np.array(x)
-        x = x.reshape((x.shape[1] * 2, -1))
+        x = x.reshape((x.shape[1] * 2,) + x.shape[2:])
         return x, y
 
 
