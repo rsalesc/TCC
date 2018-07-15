@@ -112,9 +112,9 @@ class TripletLineLSTM(BaseModel):
         x = Bidirectional(
             LSTM(self._line_capacity, dropout=self._line_capacity))(x)
 
-        x = Dense(512, activation="relu")(x)
-        x = Dropout(self._dropout_fc)(x)
-        x = BatchNormalization()(x)
+        x = Dense(128, activation="relu")(x)
+        # x = Dropout(self._dropout_fc)(x)
+        # x = BatchNormalization()(x)
 
         x = Dense(self._output_size, activation=None)(x)
         x = Lambda(l2_normalization)(x)

@@ -420,9 +420,9 @@ def argparsing():
     lstm_triplet = lstm_subparsers.add_parser("triplet")
 
     lstm.add_argument("--char-embedding-size", type=int, default=70)
-    lstm.add_argument("--embedding-size", type=int, default=20)
-    lstm.add_argument("--char-capacity", type=int, default=32)
-    lstm.add_argument("--line-capacity", type=int, default=32)
+    lstm.add_argument("--embedding-size", type=int, default=128)
+    lstm.add_argument("--char-capacity", type=int, default=64)
+    lstm.add_argument("--line-capacity", type=int, default=64)
     lstm.add_argument("--dropout-fc", type=float, default=0.0)
 
     lstm.add_argument("--max-chars", type=int, default=80)
