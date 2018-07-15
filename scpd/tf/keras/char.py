@@ -76,7 +76,7 @@ class SimilarityCharCNN(BaseModel):
     def SiamesisNetwork(self):
         input = Input(shape=self.input_shape())
         x = Embedding(
-            self._alphabet_size + 1,
+            self._alphabet_size,
             self._embedding_size,
             input_length=self._input_size)(input)
 
@@ -169,9 +169,9 @@ class TripletCharCNN(SimilarityCharCNN):
     def build(self):
         x = Input(shape=self.input_shape())
         embeddings = self.SiamesisNetwork()(x)
-        identity = Activation("linear", name="output_embedding")(embeddings)
+        identity = Activation("linear", name="output")(embeddings)
 
         self.model = Model(x, identity)
 
     def embeddings_to_watch(self):
-        return ["output_embedding"]
+        return ["output"]
