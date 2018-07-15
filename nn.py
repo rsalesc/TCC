@@ -5,6 +5,7 @@ import random
 import string
 import shutil
 import os
+import math
 import time
 from bisect import bisect
 from keras import backend as K
@@ -246,13 +247,14 @@ def encode_text(text):
 
 
 def crop_or_extend(s, crop_size, pad=0):
+    g = s
     if crop_size > 0:
-        s = s[:crop_size]
+        g = s[:crop_size]
     else:
-        s = s[crop_size:]
-    if len(s) < crop_size:
-        s.extend([pad] * (crop_size - len(s)))
-    return s
+        g = s[crop_size:]
+    if len(g) < abs(crop_size):
+        g.extend([pad] * (abs(crop_size) - len(g)))
+    return g
 
 
 def extract_cnn_features(source, input_size=None):
