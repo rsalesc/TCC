@@ -131,8 +131,16 @@ class ParticipantExtractor():
         self._rated_list = rated_list
 
     def extract(self, K, props=None):
-        if props is None:
+        if not isinstance(K, list):
             return utils.sample_list(self._rated_list, K)
+        if props is None:
+            samples = utils.sample_list(self._rated_list, sum(K))
+            acc = 0
+            res = []
+            for k in K:
+                res.append(samples[acc:acc+k])
+                acc += k
+            return res
         else:
             raise NotImplementedError()
 
