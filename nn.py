@@ -5,6 +5,7 @@ import random
 import string
 import shutil
 import os
+import math
 import time
 from bisect import bisect
 from keras import backend as K
@@ -19,6 +20,7 @@ from scpd.source import SourceCode
 from scpd.utils import ObjectPairing, opens
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
+from scpd.tf.keras.lstm import TripletLineLSTM
 from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
                                    FlatPairValidationMetric)
@@ -101,10 +103,12 @@ class PerIterationTensorBoard(TensorBoard):
 
 
 class CodePairSequence(Sequence):
-    def __init__(self, pairs, batch_size, input_size=None):
+    def __init__(self, pairs, batch_size, input_size=None, fn=None):
+        assert fn is not None
         self._pairs = pairs
         self._batch_size = batch_size
         self._input_size = input_size
+        self._ex = NeuralFeatureExtractor(fn, input_size)
 
     def __len__(self):
         return (len(self._pairs) + self._batch_size - 1) // self._batch_size
@@ -112,21 +116,23 @@ class CodePairSequence(Sequence):
     def __getitem__(self, idx):
         batch = self._pairs[idx * self._batch_size:(idx + 1) *
                             self._batch_size]
-        return extract_pair_batch_features(batch, self._input_size)
+        return self._ex.extract_pair_batch_features(batch)
 
 
 class FlatCodePairSequence(CodePairSequence):
     def __getitem__(self, idx):
         batch = self._pairs[idx * self._batch_size:(idx + 1) *
                             self._batch_size]
-        return extract_flat_pair_batch_features(batch, self._input_size)
+        return self._ex.extract_flat_pair_batch_features(batch)
 
 
 class CodeSequence(Sequence):
-    def __init__(self, sequence, batch_size, input_size=None):
+    def __init__(self, sequence, batch_size, input_size=None, fn=None):
+        assert fn is not None
         self._sequence = sequence
         self._batch_size = batch_size
         self._input_size = input_size
+        self._ex = NeuralFeatureExtractor(fn, input_size)
 
     def __len__(self):
         return (len(self._sequence) + self._batch_size - 1) // self._batch_size
@@ -136,7 +142,7 @@ class CodeSequence(Sequence):
                                self._batch_size]
         labels = LabelEncoder().fit_transform(
             list(map(lambda x: x.author(), batch)))
-        return extract_batch_x(batch, self._input_size), np.array(labels)
+        return self.ex_.extract_batch_x(batch), np.array(labels)
 
 
 class CodeForTripletGenerator:
@@ -145,7 +151,9 @@ class CodeForTripletGenerator:
                  classes_per_batch,
                  samples_per_class,
                  extra_negatives=0,
-                 input_size=None):
+                 input_size=None,
+                 fn=None):
+        assert fn is not None
         self._sequence = sequence.copy()
         self._labels = self._generate_labels()
         self._classes = self._generate_classes()
@@ -156,6 +164,7 @@ class CodeForTripletGenerator:
         self._samples_per_class = samples_per_class
         self._input_size = input_size
         self._extra_negatives = extra_negatives
+        self._ex = NeuralFeatureExtractor(fn, input_size)
 
     def __len__(self):
         batch_size = (self._classes_per_batch * self._samples_per_class +
@@ -167,7 +176,7 @@ class CodeForTripletGenerator:
             batch_x, batch_y = zip(
                 *self._pick_from_classes(self._classes_per_batch,
                                          self._samples_per_class))
-            np_x = extract_batch_x(batch_x, self._input_size)
+            np_x = self._ex.extract_batch_x(batch_x)
             np_y = np.array(batch_y)
             p = np.random.permutation(len(batch_x))
             yield np_x[p], np_y[p]
@@ -230,48 +239,73 @@ def encode_char(char):
     i = bisect(ALPHABET, char)
     if i > 0 and ALPHABET[i - 1] == char:
         return i
-    return len(ALPHABET)
+    return 0
 
 
 def encode_text(text):
     return list(map(encode_char, text))
 
 
-def extract_features(source, input_size=None):
+def crop_or_extend(s, crop_size, pad=0):
+    g = s
+    if crop_size > 0:
+        g = s[:crop_size]
+    else:
+        g = s[crop_size:]
+    if len(g) < abs(crop_size):
+        g.extend([pad] * (abs(crop_size) - len(g)))
+    return g
+
+
+def extract_cnn_features(source, input_size=None):
     # should be more efficient
     res = encode_text(source.fetch())
     if input_size is not None:
-        res = res[-input_size:]
-        if len(res) < input_size:
-            res.extend([len(ALPHABET)] * (input_size - len(res)))
+        res = crop_or_extend(res, -input_size)
     return np.array(res)
 
 
-def extract_batch_x(batch, input_size=None):
-    batch_x = [extract_features(source, input_size) for source in batch]
-
-    return np.array(batch_x)
-
-
-def extract_pair_batch_features(batch, input_size=None):
-    # no prefetching since AST is not needed for now
-    a, b = zip(*batch)
-    batch_x = [
-        np.array([extract_features(aa, input_size) for aa in a]),
-        np.array([extract_features(bb, input_size) for bb in b])
-    ]
-    batch_y = []
-    for a, b in batch:
-        batch_y.append(1 if a.author() == b.author() else 0)
-
-    return batch_x, np.array(batch_y)
+def extract_hierarchical_features(source, input_size=None):
+    assert isinstance(input_size, tuple) and len(input_size) == 2
+    max_lines, max_chars = input_size
+    assert max_lines is not None
+    assert max_chars is not None
+    lines = list(
+        map(lambda x: crop_or_extend(encode_text(x), max_chars),
+            source.fetch().splitlines()))
+    lines = crop_or_extend(lines, -max_lines, pad=[0] * max_chars)
+    return np.array(lines)
 
 
-def extract_flat_pair_batch_features(batch, input_size=None):
-    x, y = extract_pair_batch_features(batch, input_size=input_size)
-    x = np.array(x)
-    x = x.reshape((x.shape[1] * 2, -1))
-    return x, y
+class NeuralFeatureExtractor:
+    def __init__(self, fn, input_size=None):
+        self._fn = fn
+        self._input_size = input_size
+
+    def extract_batch_x(self, batch):
+        batch_x = [self._fn(source, self._input_size) for source in batch]
+
+        return np.array(batch_x)
+
+    def extract_pair_batch_features(self, batch):
+        input_size = self._input_size
+        # no prefetching since AST is not needed for now
+        a, b = zip(*batch)
+        batch_x = [
+            np.array([self._fn(aa, input_size) for aa in a]),
+            np.array([self._fn(bb, input_size) for bb in b])
+        ]
+        batch_y = []
+        for a, b in batch:
+            batch_y.append(1 if a.author() == b.author() else 0)
+
+        return batch_x, np.array(batch_y)
+
+    def extract_flat_pair_batch_features(self, batch):
+        x, y = self.extract_pair_batch_features(batch)
+        x = np.array(x)
+        x = x.reshape((x.shape[1] * 2,) + x.shape[2:])
+        return x, y
 
 
 def make_pairs(dataset, k1, k2):
@@ -364,8 +398,8 @@ def argparsing():
 
     cnn.add_argument("--char-embedding-size", type=int, default=70)
     cnn.add_argument("--embedding-size", type=int, default=128)
-    cnn.add_argument("--dropout-conv", type=float, default=0.1)
-    cnn.add_argument("--dropout-fc", type=float, default=0.5)
+    cnn.add_argument("--dropout-conv", type=float, default=0.0)
+    cnn.add_argument("--dropout-fc", type=float, default=0.0)
     cnn.add_argument("--input-crop", type=int, default=768)
 
     cnn_triplet.add_argument("--margin", required=True, type=float)
@@ -386,11 +420,19 @@ def argparsing():
     lstm_triplet = lstm_subparsers.add_parser("triplet")
 
     lstm.add_argument("--char-embedding-size", type=int, default=70)
-    lstm.add_argument("--embedding-size", type=int, default=20)
-    lstm.add_argument("--char-capacity", type=int, default=32)
-    lstm.add_argument("--line-capacity", type=int, default=32)
+    lstm.add_argument("--embedding-size", type=int, default=128)
+    lstm.add_argument("--char-capacity", type=int, default=64)
+    lstm.add_argument("--line-capacity", type=int, default=64)
+    lstm.add_argument("--dropout-fc", type=float, default=0.0)
+
+    lstm.add_argument("--max-chars", type=int, default=80)
+    lstm.add_argument("--max-lines", type=int, default=300)
 
     lstm_triplet.add_argument("--margin", required=True, type=float)
+    lstm_triplet.add_argument("--classes-per-batch", type=int, default=12)
+    lstm_triplet.add_argument("--samples-per-class", type=int, default=6)
+    lstm_triplet.set_defaults(func=run_triplet_lstm)
+    lstm_triplet.set_defaults(emb_func=get_embedding_triplet_lstm)
 
     return parser.parse_args()
 
@@ -452,12 +494,72 @@ def build_scpd_model(nn, path=None):
         nn.model = load_model(path, nn.loader_objects(), compile=False)
 
 
+def get_embedding_triplet_lstm(args):
+    ex = NeuralFeatureExtractor(
+        extract_hierarchical_features,
+        input_size=(args.max_lines, args.max_chars))
+    sources = load_embedding_dataset(args)
+    labels = list(map(lambda x: [x.author()], sources))
+    x = ex.extract_batch_x(sources)
+    return x, labels, ["author"]
+
+
 def run_triplet_lstm(args,
                      training_sources,
                      validation_sources,
                      load=None,
                      callbacks=[]):
-    pass
+    random.shuffle(training_sources)
+    input_size = (args.max_lines, args.max_chars)
+    extract_fn = extract_hierarchical_features
+
+    training_generator = CodeForTripletGenerator(
+        training_sources,
+        classes_per_batch=args.classes_per_batch,
+        samples_per_class=args.samples_per_class,
+        input_size=input_size,
+        fn=extract_fn)
+
+    validation_pairs = make_pairs(validation_sources, k1=1000, k2=1000)
+    random.shuffle(validation_pairs)
+
+    validation_sequence = FlatCodePairSequence(
+        validation_pairs,
+        batch_size=args.validation_batch_size,
+        input_size=input_size,
+        fn=extract_fn)
+
+    optimizer = Adam(lr=args.lr)
+    nn = TripletLineLSTM(
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        char_capacity=args.char_capacity,
+        line_capacity=args.line_capacity,
+        dropout_fc=args.dropout_fc,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric=["precision", "recall", "accuracy"])
+
+    build_scpd_model(nn)
+    nn.compile()
+    print(nn.model.summary())
+
+    val_threshold_metric = FlatPairValidationMetric(
+        np.linspace(0.0, 2.0, args.threshold_granularity),
+        id="thresholded",
+        metric=["precision", "accuracy"],
+        argmax="accuracy")
+    om = OfflineMetrics(
+        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
+    tb = setup_tensorboard(args, nn)
+
+    nn.train(
+        training_generator(),
+        callbacks=[om, tb] + callbacks,
+        epochs=args.max_epochs,
+        steps_per_epoch=args.eval_every or len(training_generator),
+        initial_epoch=args.epoch)
 
 
 def run_contrastive_cnn(args,
@@ -469,9 +571,11 @@ def run_contrastive_cnn(args,
 
 
 def get_embedding_triplet_cnn(args):
+    ex = NeuralFeatureExtractor(
+        extract_cnn_features, input_size=args.input_crop)
     sources = load_embedding_dataset(args)
     labels = list(map(lambda x: [x.author()], sources))
-    x = extract_batch_x(sources, input_size=args.input_crop)
+    x = ex.extract_batch_x(sources)
     return x, labels, ["author"]
 
 
@@ -481,12 +585,15 @@ def run_triplet_cnn(args,
                     load=None,
                     callbacks=[]):
     random.shuffle(training_sources)
+    input_size = args.input_crop
+    extract_fn = extract_cnn_features
 
     training_generator = CodeForTripletGenerator(
         training_sources,
         classes_per_batch=args.classes_per_batch,
         samples_per_class=args.samples_per_class,
-        input_size=args.input_crop)
+        input_size=input_size,
+        fn=extract_fn)
 
     validation_pairs = make_pairs(validation_sources, k1=1000, k2=1000)
     random.shuffle(validation_pairs)
@@ -494,7 +601,8 @@ def run_triplet_cnn(args,
     validation_sequence = FlatCodePairSequence(
         validation_pairs,
         batch_size=args.validation_batch_size,
-        input_size=args.input_crop)
+        input_size=input_size,
+        fn=extract_fn)
 
     optimizer = Adam(lr=args.lr)
     nn = TripletCharCNN(
@@ -516,12 +624,9 @@ def run_triplet_cnn(args,
         np.linspace(0.0, 2.0, args.threshold_granularity),
         id="thresholded",
         metric=["precision", "accuracy"],
-        argmax=["accuracy"])
-    val_margin_metric = FlatPairValidationMetric(
-        args.margin, id="margin", metric=["f1", "precision", "accuracy"])
+        argmax="accuracy")
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric, val_margin_metric],
-        validation_data=validation_sequence)
+        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
     tb = setup_tensorboard(args, nn)
 
     nn.train(

@@ -268,32 +268,36 @@ class SimilarityValidationMetric(OfflineMetric):
                  *args,
                  id="sim",
                  metric=["accuracy"],
-                 argmax=[],
+                 argmax=None,
                  **kwargs):
         self._margin = np.array(margin)
-        assert len(argmax) == 0 or self._margin.ndim == 1
+        assert argmax is None or (self._margin.ndim == 1 and argmax in metric)
         self._metric = metric if isinstance(metric, list) else [metric]
-        self._argmax = argmax if isinstance(argmax, list) else [argmax]
+        self._argmax = argmax
         self._scorer = None
         self._id = id
         super().__init__(self, *args, **kwargs)
 
     def name(self):
-        metrics = map(lambda x: "val_{}_{}".format(self._id, x), self._metric)
-        argmaxes = map(lambda x: "val_{}_argmax_{}".format(self._id, x),
-                       self._argmax)
-        return tuple(metrics) + tuple(argmaxes)
+        metrics = list(
+            map(lambda x: "val_{}_{}".format(self._id, x), self._metric))
+        if self._argmax is not None:
+            metrics.append("val_{}_argmax_{}".format(self._id, self._argmax))
+        return tuple(metrics)
 
     def handle_batch(self, model, x, labels, pred):
         self._scorer.handle(labels, pred)
 
     def result(self):
-        metrics = map(lambda x: safe_nanmax(self._scorer.result(x)),
-                      self._metric)
-        argmaxes = map(
-            lambda x: self._margin[safe_nanargmax(self._scorer.result(x))],
-            self._argmax)
-        return tuple(metrics) + tuple(argmaxes)
+        if self._argmax is None:
+            metrics = map(lambda x: safe_nanmax(self._scorer.result(x)),
+                          self._metric)
+            return tuple(metrics)
+        else:
+            argmax = safe_nanargmax(self._scorer.result(self._argmax))
+            metrics = map(lambda x: self._scorer.result(x)[argmax],
+                          self._metric)
+            return tuple(metrics) + (self._margin[argmax], )
 
 
 class TripletValidationMetric(SimilarityValidationMetric):
