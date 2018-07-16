@@ -426,6 +426,7 @@ def argparsing():
     lstm.add_argument("--dropout-char", type=float, default=0.0)
     lstm.add_argument("--dropout-line", type=float, default=0.0)
     lstm.add_argument("--dropout-fc", type=float, default=0.0)
+    lstm.add_argument("--dropout-inter", type=float, default=0.0)
 
     lstm.add_argument("--max-chars", type=int, default=80)
     lstm.add_argument("--max-lines", type=int, default=300)
@@ -541,6 +542,7 @@ def run_triplet_lstm(args,
         dropout_char=args.dropout_char,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
+        dropout_inter=args.dropout_inter,
         margin=args.margin,
         optimizer=optimizer,
         metric=["precision", "recall", "accuracy"])
@@ -552,7 +554,7 @@ def run_triplet_lstm(args,
     val_threshold_metric = FlatPairValidationMetric(
         np.linspace(0.0, 2.0, args.threshold_granularity),
         id="thresholded",
-        metric=["precision", "accuracy"],
+        metric=["precision", "accuracy", "recall"],
         argmax="accuracy")
     om = OfflineMetrics(
         on_epoch=[val_threshold_metric], validation_data=validation_sequence)
@@ -627,7 +629,7 @@ def run_triplet_cnn(args,
     val_threshold_metric = FlatPairValidationMetric(
         np.linspace(0.0, 2.0, args.threshold_granularity),
         id="thresholded",
-        metric=["precision", "accuracy"],
+        metric=["precision", "accuracy", "recall"],
         argmax="accuracy")
     om = OfflineMetrics(
         on_epoch=[val_threshold_metric], validation_data=validation_sequence)

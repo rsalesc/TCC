@@ -2,7 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 from keras.models import Model
 from keras.layers import (Input, Dense, LSTM, Lambda, Embedding, Masking)
-from keras.layers import TimeDistributed, Bidirectional
+from keras.layers import TimeDistributed, Bidirectional, CuDNNLSTM
 from keras.layers import Dropout, BatchNormalization, Activation
 
 from .common import (l2_normalization, triplet_loss)
@@ -33,6 +33,25 @@ def gather_returns(tensor):
     return reduce_dim(x, L - 1)
 
 
+def has_gpu():
+    return len(K.tensorflow_backend._get_available_gpus()) > 0
+
+
+def mask_dropout(p):
+    keep_prob = 1.0 - p
+    def mask_dropout(x, mask):
+        if mask is None:
+            mask = tf.ones_like(x)
+        noise = keep_prob + tf.random_uniform(tf.shape(mask))
+        keep_mask = tf.cast(tf.floor(noise), tf.bool)
+        return tf.logical_and(mask, keep_mask)
+    return mask_dropout
+
+
+def OptimizedLSTM(*args, **kwargs):
+    return LSTM(*args, **kwargs)
+
+
 class TripletLineLSTM(BaseModel):
     def __init__(self,
                  alphabet_size,
@@ -43,6 +62,7 @@ class TripletLineLSTM(BaseModel):
                  dropout_line=0.0,
                  dropout_char=0.0,
                  dropout_fc=0.0,
+                 dropout_inter=0.0,
                  margin=0.2,
                  metric="accuracy",
                  metric_margin=None,
@@ -60,6 +80,7 @@ class TripletLineLSTM(BaseModel):
         self._dropout_line = dropout_line
         self._dropout_char = dropout_char
         self._dropout_fc = dropout_fc
+        self._dropout_inter = dropout_inter
 
         self._margin = margin
         self._triplet_loss_fn = triplet_loss(margin)
@@ -100,7 +121,7 @@ class TripletLineLSTM(BaseModel):
                 mask_zero=True))(input)
 
         x = TimeDistributed(
-            LSTM(self._char_capacity, dropout=self._dropout_char))(x)
+            OptimizedLSTM(self._char_capacity, dropout=self._dropout_char))(x)
 
         # get mask on original input and apply it to current output
         # (resets whatever mask is being propagated)
@@ -109,8 +130,11 @@ class TripletLineLSTM(BaseModel):
             mask=lambda y, _: Masking(mask_value=0).compute_mask(y[1]))(
                 [x, input])
 
+        # drop some lines
+        x = Lambda(lambda x: x, mask=mask_dropout(self._dropout_inter))(x)
+
         x = Bidirectional(
-            LSTM(self._line_capacity, dropout=self._dropout_line))(x)
+            OptimizedLSTM(self._line_capacity, dropout=self._dropout_line))(x)
 
         # x = Dense(128, activation="relu")(x)
         # x = Dropout(self._dropout_fc)(x)

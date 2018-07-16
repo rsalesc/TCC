@@ -28,6 +28,24 @@ def extract_joern_codes(sources, force=False):
     return parser.parse(force=force)
 
 
+class CodeforcesDisjointDatasetBuilder():
+    SUBMISSION_API_COUNT = 10000
+
+    def __init__(self, descriptors):
+        self._descriptors = descriptors
+
+    def get_dataset_sizes(self):
+        return list(map(lambda x: x[0], self._descriptors))
+
+    def fetch_datasets(self):
+        participants = self._participant_extractor.extract(self.get_dataset_sizes())
+        res = []
+        for i, p in enumerate(participants):
+            extractor = BatchSubmissionExtractor(CODEFORCES_POOL, p, count=CodeforcesDisjointDatasetBuilder.SUBMISSION_API_COUNT)
+            res.append(extractor.extract(FilterProvider().filter(), limit=self._descriptors[i][1]))
+        return res
+
+
 class CodeforcesDatasetBuilder():
     SUBMISSION_API_COUNT = 10000
 
