@@ -423,6 +423,8 @@ def argparsing():
     lstm.add_argument("--embedding-size", type=int, default=128)
     lstm.add_argument("--char-capacity", type=int, default=64)
     lstm.add_argument("--line-capacity", type=int, default=64)
+    lstm.add_argument("--dropout-char", type=float, default=0.0)
+    lstm.add_argument("--dropout-line", type=float, default=0.0)
     lstm.add_argument("--dropout-fc", type=float, default=0.0)
 
     lstm.add_argument("--max-chars", type=int, default=80)
@@ -536,6 +538,8 @@ def run_triplet_lstm(args,
         output_size=args.embedding_size,
         char_capacity=args.char_capacity,
         line_capacity=args.line_capacity,
+        dropout_char=args.dropout_char,
+        dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
         margin=args.margin,
         optimizer=optimizer,
