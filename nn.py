@@ -421,8 +421,8 @@ def argparsing():
 
     lstm.add_argument("--char-embedding-size", type=int, default=70)
     lstm.add_argument("--embedding-size", type=int, default=128)
-    lstm.add_argument("--char-capacity", type=int, default=64)
-    lstm.add_argument("--line-capacity", type=int, default=64)
+    lstm.add_argument("--char-capacity", nargs="+", type=int, default=[64])
+    lstm.add_argument("--line-capacity", nargs="+", type=int, default=[64])
     lstm.add_argument("--dropout-char", type=float, default=0.0)
     lstm.add_argument("--dropout-line", type=float, default=0.0)
     lstm.add_argument("--dropout-fc", type=float, default=0.0)
