@@ -2,8 +2,9 @@ import tensorflow as tf
 from keras import backend as K
 from keras.models import Model
 from keras.layers import (Input, Dense, LSTM, Lambda, Embedding, Masking)
-from keras.layers import TimeDistributed, Bidirectional, CuDNNLSTM
+from keras.layers import TimeDistributed, Bidirectional
 from keras.layers import Dropout, BatchNormalization, Activation
+from keras.layers import RNN, LSTMCell
 
 from .common import (l2_normalization, triplet_loss)
 from .base import BaseModel
@@ -74,8 +75,8 @@ class TripletLineLSTM(BaseModel):
         self._alphabet_size = alphabet_size
         self._embedding_size = embedding_size
         self._output_size = output_size
-        self._line_capacity = line_capacity
-        self._char_capacity = char_capacity
+        self._line_capacity = line_capacity if isinstance(line_capacity, list) else [line_capacity]
+        self._char_capacity = char_capacity if isinstance(char_capacity, list) else [char_capacity]
         self._optimizer = optimizer
         self._dropout_line = dropout_line
         self._dropout_char = dropout_char
@@ -120,8 +121,9 @@ class TripletLineLSTM(BaseModel):
                 self._alphabet_size, self._embedding_size,
                 mask_zero=True))(input)
 
-        x = TimeDistributed(
-            OptimizedLSTM(self._char_capacity, dropout=self._dropout_char))(x)
+        for i, cap in enumerate(self._char_capacity):
+            is_last = (i + 1 == len(self._char_capacity))
+            x = TimeDistributed(LSTM(cap, dropout=self._dropout_char, return_sequences=(not is_last)))(x)
 
         # get mask on original input and apply it to current output
         # (resets whatever mask is being propagated)
@@ -133,8 +135,9 @@ class TripletLineLSTM(BaseModel):
         # drop some lines
         x = Lambda(lambda x: x, mask=mask_dropout(self._dropout_inter))(x)
 
-        x = Bidirectional(
-            OptimizedLSTM(self._line_capacity, dropout=self._dropout_line))(x)
+        for i, cap in enumerate(self._line_capacity):
+            is_last = (i + 1 == len(self._line_capacity))
+            x = Bidirectional(LSTM(cap, dropout=self._dropout_line, return_sequences=(not is_last)))(x)
 
         # x = Dense(128, activation="relu")(x)
         # x = Dropout(self._dropout_fc)(x)
