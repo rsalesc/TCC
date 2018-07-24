@@ -1,5 +1,10 @@
 import tensorflow as tf
 import os
+import sys
+
+
+def get_execution_path():
+    return os.path.realpath(sys.path[0])
 
 
 def load_latest(sess, saver, folder):
