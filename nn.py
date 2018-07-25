@@ -1,6 +1,7 @@
 import argparse
 import tensorflow as tf
 import numpy as np
+import pandas as pd
 import random
 import string
 import shutil
@@ -21,10 +22,13 @@ from scpd.utils import ObjectPairing, opens
 from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.lstm import TripletLineLSTM
+from scpd.tf.keras.mlp import TripletMLP
 from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
                                    FlatPairValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
+from basics import (TRAINING_PKL, TEST_PKL,
+                    apply_preprocessing_for_triplet_mlp, RowPairing)
 from constants import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 
@@ -102,13 +106,38 @@ class PerIterationTensorBoard(TensorBoard):
         self.writer.flush()
 
 
+class RowSequence(Sequence):
+    def __init__(self, x, y, batch_size, shuffle=True):
+        self._x = x
+        self._y = y
+        self._batch_size = batch_size
+        self._size = x.shape[0]
+        if shuffle:
+            p = np.random.permutation(x.shape[0])
+            self._x = x[p]
+            self._y = y[p]
+
+    def __len__(self):
+        return (self._size + self._batch_size - 1) // self._batch_size
+
+    def __getitem__(self, idx):
+        batch_x = self._x[idx * self._batch_size:(idx + 1) * self._batch_size]
+        batch_y = self._y[idx * self._batch_size:(idx + 1) * self._batch_size]
+        return np.array(batch_x), np.array(batch_y)
+
+
 class CodePairSequence(Sequence):
-    def __init__(self, pairs, batch_size, input_size=None, fn=None):
+    def __init__(self,
+                 pairs,
+                 batch_size,
+                 input_size=None,
+                 fn=None,
+                 fn_author=None):
         assert fn is not None
         self._pairs = pairs
         self._batch_size = batch_size
         self._input_size = input_size
-        self._ex = NeuralFeatureExtractor(fn, input_size)
+        self._ex = NeuralFeatureExtractor(fn, input_size, fn_author=fn_author)
 
     def __len__(self):
         return (len(self._pairs) + self._batch_size - 1) // self._batch_size
@@ -232,6 +261,21 @@ class CodeForTripletGenerator:
             list(map(lambda x: x.author(), self._sequence)))
 
 
+class DataframeForTripletGenerator(CodeForTripletGenerator):
+    def __init__(self, x, y, *args, **kwargs):
+        if "fn" not in kwargs:
+
+            def fn(x, _):
+                return x[0]
+
+            kwargs["fn"] = fn
+        super().__init__(list(zip(*(x.tolist(), y.tolist()))), *args, **kwargs)
+
+    def _generate_labels(self):
+        features, labels = zip(*self._sequence)
+        return labels
+
+
 ALPHABET = sorted(list(string.printable))
 
 
@@ -277,9 +321,14 @@ def extract_hierarchical_features(source, input_size=None):
     return np.array(lines)
 
 
+def fn_author_default(x):
+    return x.author()
+
+
 class NeuralFeatureExtractor:
-    def __init__(self, fn, input_size=None):
+    def __init__(self, fn, input_size=None, fn_author=None):
         self._fn = fn
+        self._fn_author = fn_author or fn_author_default
         self._input_size = input_size
 
     def extract_batch_x(self, batch):
@@ -297,21 +346,21 @@ class NeuralFeatureExtractor:
         ]
         batch_y = []
         for a, b in batch:
-            batch_y.append(1 if a.author() == b.author() else 0)
+            batch_y.append(1
+                           if self._fn_author(a) == self._fn_author(b) else 0)
 
         return batch_x, np.array(batch_y)
 
     def extract_flat_pair_batch_features(self, batch):
         x, y = self.extract_pair_batch_features(batch)
         x = np.array(x)
-        x = x.reshape((x.shape[1] * 2,) + x.shape[2:])
+        x = x.reshape((x.shape[1] * 2, ) + x.shape[2:])
         return x, y
 
 
-def make_pairs(dataset, k1, k2):
+def make_pairs(dataset, k1, k2, pairing=ObjectPairing()):
     # dataset must be sorted by author
     random.seed(MAGICAL_SEED * 42)
-    pairing = ObjectPairing()
     pairs = pairing.make_pairs(dataset, k1=k1, k2=k2)
     return pairs
 
@@ -387,6 +436,26 @@ def argparsing():
         "--procedural-dataset", choices=["alpha", "single"], default=None)
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
+
+    # MLP
+    mlp = subparsers.add_parser("mlp")
+    mlp_subparsers = mlp.add_subparsers(title="losses", dest="loss")
+    mlp_subparsers.required = True
+
+    mlp_triplet = mlp_subparsers.add_parser("triplet")
+
+    mlp.add_argument("--dropout", type=float, default=0.0)
+    mlp.add_argument("--hidden-size", nargs="+", type=int, default=[64])
+    mlp.add_argument("--embedding-size", type=int, default=64)
+    mlp.add_argument("--pca", type=int, default=None)
+    mlp.add_argument("--verbose", default=False, action="store_true")
+    mlp.add_argument("--select", type=int, default=None)
+
+    mlp_triplet.add_argument("--margin", required=True, type=float)
+    mlp_triplet.add_argument("--classes-per-batch", type=int, default=12)
+    mlp_triplet.add_argument("--samples-per-class", type=int, default=8)
+    mlp_triplet.set_defaults(func=run_triplet_mlp)
+    mlp_triplet.set_defaults(emb_func=get_embedding_triplet_mlp)
 
     # Char CNN
     cnn = subparsers.add_parser("cnn")
@@ -495,6 +564,79 @@ def build_scpd_model(nn, path=None):
         nn.build()
     else:
         nn.model = load_model(path, nn.loader_objects(), compile=False)
+
+
+def get_embedding_triplet_mlp(args):
+    training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
+    test_features = pd.read_pickle(TEST_PKL, compression="infer")
+    (training_features, training_labels, test_features,
+     test_labels) = apply_preprocessing_for_triplet_mlp(
+         args, training_features, test_features)
+
+    ex = NeuralFeatureExtractor(fn=lambda x, _: x)
+    x = ex.extract_batch_x(test_features.tolist())
+    labels = list(map(lambda x: [str(x)], test_labels))
+    return x, labels, ["author"]
+
+
+def run_triplet_mlp(args,
+                    training_sources,
+                    validation_sources,
+                    load=None,
+                    callbacks=[]):
+
+    training_features = pd.read_pickle(TRAINING_PKL, compression="infer")
+    test_features = pd.read_pickle(TEST_PKL, compression="infer")
+    (training_features, training_labels, test_features,
+     test_labels) = apply_preprocessing_for_triplet_mlp(
+         args, training_features, test_features)
+
+    input_size = training_features.shape[1]
+
+    training_generator = DataframeForTripletGenerator(
+        training_features, training_labels, args.classes_per_batch,
+        args.samples_per_class)
+
+    test_data = list(zip(*(test_features, test_labels)))
+    validation_pairs = make_pairs(
+        test_data, k1=1000, k2=1000, pairing=RowPairing())
+    random.shuffle(validation_pairs)
+
+    validation_sequence = FlatCodePairSequence(
+        validation_pairs,
+        batch_size=args.validation_batch_size,
+        fn=lambda x, _: x[0],
+        fn_author=lambda x: x[1])
+
+    optimizer = Adam(lr=args.lr)
+    nn = TripletMLP(
+        input_size=input_size,
+        hidden_size=args.hidden_size,
+        output_size=args.embedding_size,
+        dropout=args.dropout,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric=["precision", "recall", "accuracy"])
+
+    build_scpd_model(nn)
+    nn.compile()
+    print(nn.model.summary())
+
+    val_threshold_metric = FlatPairValidationMetric(
+        np.linspace(0.0, 2.0, args.threshold_granularity),
+        id="thresholded",
+        metric=["precision", "accuracy", "recall"],
+        argmax="accuracy")
+    om = OfflineMetrics(
+        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
+    tb = setup_tensorboard(args, nn)
+
+    nn.train(
+        training_generator(),
+        callbacks=[om, tb] + callbacks,
+        epochs=args.max_epochs,
+        steps_per_epoch=args.eval_every or len(training_generator),
+        initial_epoch=args.epoch)
 
 
 def get_embedding_triplet_lstm(args):

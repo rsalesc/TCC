@@ -12,20 +12,20 @@ from keras.callbacks import TensorBoard, ModelCheckpoint
 
 from scpd import source
 from scpd.utils import ObjectPairing
-from scpd.tf import mlp
 from scpd.tf.keras.mlp import SimilarityMLP
 from scpd.features import (LabelerPairFeatureExtractor, BaseFeatureExtractor,
                            PrefetchBatchFeatureExtractor,
                            SmartPairFeatureExtractor)
 from scpd.metrics import BinaryClassificationMetrics
 from scpd.datasets import CodeforcesDatasetBuilder
-from scpd.learning.scikit import RandomForestFitter, XGBoostFitter
+from scpd.learning.scikit import (RandomForestFitter, XGBoostFitter,
+                                  DecisionTreeFitter, SVMFitter)
 
 from constants import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 SUBMISSION_API_COUNT = 10000
 
-LEARNING_METHODS = ["xgb", "random"]
+LEARNING_METHODS = ["xgb", "random", "decision", "svm"]
 TRAINING_PKL = "training.pkl.gz"
 TEST_PKL = "test.pkl.gz"
 AUTHOR_COL = "author"
@@ -57,7 +57,7 @@ def make_pairs(features, k1, k2):
     return np.array(concat_pairs), np.array(labels)
 
 
-def apply_preprocessing(args, training_features, test_features):
+def apply_preprocessing_all(args, training_features, test_features):
     training_authors = training_features[AUTHOR_COL]
     test_authors = test_features[AUTHOR_COL]
     training_features.drop(AUTHOR_COL, axis=1, inplace=True)
@@ -81,6 +81,25 @@ def apply_preprocessing(args, training_features, test_features):
         if args.verbose:
             print("PCA explanation: {}".format(pca.explained_variance_ratio_))
 
+    if args.select is not None:
+        folder = StratifiedKFold(n_splits=7, random_state=MAGICAL_SEED, shuffle=True)
+
+        clf = RandomForestFitter(
+            n_estimators=args.select, folder=folder, random_state=MAGICAL_SEED)
+        clf.fit(training_features, df_y=training_authors)
+        sel = clf.selector()
+        if args.verbose:
+            print("Fit selector...")
+        training_features = sel.transform(training_features)
+        test_features = sel.transform(test_features)
+        print(training_features.shape)
+
+    return training_features, training_authors, test_features, test_authors
+
+
+def apply_preprocessing(args, training_features, test_features):
+    training_features, training_authors, test_features, test_authors = (
+        apply_preprocessing_all(args, training_features, test_features))
     training_features = np.c_[training_features, training_authors]
     test_features = np.c_[test_features, test_authors]
 
@@ -93,6 +112,18 @@ def apply_preprocessing(args, training_features, test_features):
         print("Test features shape: {}".format(test_data.shape))
 
     return training_data, training_labels, test_data, test_labels
+
+
+def apply_preprocessing_for_triplet_mlp(args, training_features,
+                                        test_features):
+    training_features, training_authors, test_features, test_authors = (
+        apply_preprocessing_all(args, training_features, test_features))
+
+    if args.verbose:
+        print("Training features shape: {}".format(training_features.shape))
+        print("Test features shape: {}".format(test_features.shape))
+
+    return training_features, training_authors, test_features, test_authors
 
 
 def get_label_distribution(labels):
@@ -204,9 +235,19 @@ def run_main(args):
         test_pred, _ = xgb.predict(test_features)
     elif method == "random":
         random_forest = RandomForestFitter(
-            n_estimators=100, folder=folder, random_state=MAGICAL_SEED)
+            n_estimators=769, folder=folder, random_state=MAGICAL_SEED)
         random_forest.fit(training_features, df_y=training_labels)
         test_pred, _ = random_forest.predict(test_features)
+    elif method == "decision":
+        clf = DecisionTreeFitter(
+            criterion="entropy", folder=folder, random_state=MAGICAL_SEED)
+        clf.fit(training_features, df_y=training_labels)
+        test_pred, _ = clf.predict(test_features)
+    elif method == "svm":
+        clf = SVMFitter(dual=False, folder=folder, random_state=MAGICAL_SEED)
+        clf.fit(training_features, df_y=training_labels)
+        test_pred, _ = clf.predict(test_features)
+
     else:
         raise AssertionError(
             "Unsupported `{}` learning method.".format(method))

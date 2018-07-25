@@ -1,5 +1,8 @@
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import LinearSVC
 from xgboost import XGBClassifier
+from sklearn.feature_selection import SelectFromModel
 
 from .. import utils
 
@@ -32,12 +35,29 @@ class DataframeFitter():
         y_pred = self._classifier.predict(x)
         return y_pred, y
 
+    def selector(self):
+        raise NotImplementedError()
+
 
 class RandomForestFitter(DataframeFitter):
+    def __init__(self, *args, folder=None, random_state=None, **kwargs):
+        super().__init__(
+            *args, folder=folder, random_state=random_state, **kwargs)
+        self._classifier = RandomForestClassifier(
+            random_state=random_state, **kwargs)
+
+    def fit_fold(self, x, y):
+        self._classifier.fit(x, y)
+
+    def selector(self):
+        return SelectFromModel(self._classifier, threshold=1e-5, prefit=True)
+
+
+class DecisionTreeFitter(DataframeFitter):
     def __init__(self, folder=None, random_state=None, *args, **kwargs):
         super().__init__(
             folder=folder, random_state=random_state, *args, **kwargs)
-        self._classifier = RandomForestClassifier(
+        self._classifier = DecisionTreeClassifier(
             random_state=random_state, **kwargs)
 
     def fit_fold(self, x, y):
@@ -52,3 +72,15 @@ class XGBoostFitter(DataframeFitter):
 
     def fit_fold(self, x, y):
         self._classifier.fit(x, y)
+
+
+class SVMFitter(DataframeFitter):
+    def __init__(self, *args, folder=None, random_state=None, **kwargs):
+        super().__init__(
+            *args, folder=folder, random_state=random_state, **kwargs)
+        self._classifier = LinearSVC(
+            random_state=random_state, **kwargs)
+
+    def fit_fold(self, x, y):
+        self._classifier.fit(x, y)
+
