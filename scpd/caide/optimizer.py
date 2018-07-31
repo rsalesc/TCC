@@ -16,8 +16,12 @@ class OptimizerError(Exception):
     pass
 
 
+class SkippedError(Exception):
+    pass
+
+
 class CodeOptimizer:
-    def __init__(self, clang_includes, verbose=False, lines=1):
+    def __init__(self, clang_includes, verbose=False, lines=1, **kwargs):
         self._includes = clang_includes
         self._verbose = verbose
         self._lines = 1
@@ -49,16 +53,18 @@ class BatchSourceOptimizer():
         self._monitor = monitor
         self._cache = cache_along
 
-    def run(self, sources, force):
+    def run(self, sources, force, load=True):
         futures = []
 
-        def extract(source, cache_along, force):
+        def extract(source, cache_along):
             if source.path() is not None:
                 path = os.path.abspath(source.path())
                 caide_path = "{}.caide".format(path)
                 if os.path.isfile(caide_path) and not force:
                     source._path = caide_path
                     return
+            if not load:
+                raise SkippedError()
             code = source.fetch()
             caide_code = self._optimizer.run(code)
             if source.path() is not None and cache_along:
@@ -72,9 +78,10 @@ class BatchSourceOptimizer():
 
         for source in sources:
             future = self._pool.submit(
-                extract, source, cache_along=self._cache, force=force)
+                extract, source, cache_along=self._cache)
             futures.append(future)
 
+        result = []
         enumerated = enumerate(futures)
         skipped = 0
         if self._monitor:
@@ -87,15 +94,16 @@ class BatchSourceOptimizer():
                 enumerated.set_postfix(skipped=skipped)
             # TODO: better exception handling
             try:
-                sources.append(future.result(timeout=5))
-            except (OptimizerError, ):
+                future.result(timeout=5)
+                result.append(sources[i])
+            except (OptimizerError, SkippedError):
                 skipped += 1
                 pass
             except:
                 raise
         if self._monitor:
             print("Skipped {} entries...".format(skipped))
-        return sources
+        return result
 
 
 if __name__ == "__main__":

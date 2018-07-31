@@ -40,9 +40,10 @@ def cf_joern_plugin(builder, descriptor, input, force, verbose):
 def cf_caide_plugin(includes, *args, **kwargs):
     optimizer = CodeOptimizer(includes, *args, **kwargs)
     batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer)
+    should_load = True if "load" not in kwargs or kwargs["load"] else False
 
     def cf_caide_plugin(builder, descriptor, input, force, verbose):
-        batch.run(input, force)
+        batch.run(input, force, load=should_load)
         return input
 
     return cf_caide_plugin

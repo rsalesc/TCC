@@ -374,7 +374,7 @@ def load_embedding_dataset(args):
     if args.procedural_dataset == "single":
         return build_single_alpha(20, args.input_crop)
 
-    return dataset.preloaded([args.validation_file])
+    return dataset.preloaded([args.validation_file])[0]
 
 
 def load_dataset(args):

@@ -25,7 +25,7 @@ def preloaded(paths):
 
     plugins = [
         cf_codes_plugin,
-        cf_caide_plugin("/usr/include/clang/3.6/include")
+        cf_caide_plugin("/usr/include/clang/3.6/include", load=False)
     ]
 
     builder = Builder(descriptors, download=False, plugins=plugins)
@@ -33,4 +33,4 @@ def preloaded(paths):
 
 
 if __name__ == "__main__":
-    oldest()
+    newest()
