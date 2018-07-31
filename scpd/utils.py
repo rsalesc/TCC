@@ -10,6 +10,8 @@ def opens(*args, encoding="utf-8", **kwargs):
     dirname = os.path.dirname(args[0])
     if len(dirname) > 0:
         os.makedirs(dirname, exist_ok=True)
+    if "b" in args[1]:
+        return open(*args, **kwargs)
     return open(encoding=encoding, *args, **kwargs)
 
 

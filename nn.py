@@ -8,6 +8,7 @@ import shutil
 import os
 import math
 import time
+
 from bisect import bisect
 from keras import backend as K
 from keras.models import load_model
@@ -19,7 +20,6 @@ from sklearn.preprocessing import LabelEncoder
 
 from scpd.source import SourceCode
 from scpd.utils import ObjectPairing, opens
-from scpd.datasets import CodeforcesDatasetBuilder
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.lstm import TripletLineLSTM
 from scpd.tf.keras.mlp import TripletMLP
@@ -29,6 +29,7 @@ from scpd.tf.keras.metrics import (TripletValidationMetric,
 from scpd.tf.keras.callbacks import OfflineMetrics
 from basics import (TRAINING_PKL, TEST_PKL,
                     apply_preprocessing_for_triplet_mlp, RowPairing)
+import dataset
 from constants import TRAINING_DAT, TEST_DAT, MAGICAL_SEED
 
 
@@ -373,17 +374,7 @@ def load_embedding_dataset(args):
     if args.procedural_dataset == "single":
         return build_single_alpha(20, args.input_crop)
 
-    builder = CodeforcesDatasetBuilder(
-        training_size=None,
-        test_size=None,
-        training_file=args.embedding_file,
-        test_file=None,
-        submissions_per_user=None,
-        training_only=True,
-        download=args.download_dataset)
-
-    sources, _ = builder.extract_raw()
-    return sources
+    return dataset.preloaded([args.validation_file])
 
 
 def load_dataset(args):
@@ -396,15 +387,8 @@ def load_dataset(args):
         return build_single_alpha(50, args.input_crop), build_single_alpha(
             20, args.input_crop)
 
-    builder = CodeforcesDatasetBuilder(
-        training_size=None,
-        test_size=None,
-        training_file=args.training_file,
-        test_file=args.validation_file,
-        submissions_per_user=None,
-        download=args.download_dataset)
-
-    training_sources, validation_sources = builder.extract_raw()
+    training_sources, validation_sources = dataset.preloaded(
+        [args.training_file, args.validation_file])
     return training_sources, validation_sources
 
 

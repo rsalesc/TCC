@@ -128,7 +128,8 @@ CSRF_TOKEN = csrf_token_getter(HTTP_POOL._session)
 class ParticipantExtractor():
     def __init__(self, rated_list):
         self._n = len(rated_list)
-        self._rated_list = rated_list
+        self._rated_list = list(rated_list)
+        random.shuffle(self._rated_list)
 
     def extract(self, K, props=None):
         if not isinstance(K, list):
@@ -276,6 +277,7 @@ class DiskCodeExtractor():
                     with utils.opens(output_path, "w") as f:
                         f.write(r["source"])
                     del future
+                    future = None
                 except (IOError, json.JSONDecodeError) as e:
                     pass
             if os.path.isfile(output_path):
