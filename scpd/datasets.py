@@ -42,7 +42,8 @@ def cf_caide_plugin(includes, *args, **kwargs):
     batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer)
 
     def cf_caide_plugin(builder, descriptor, input, force, verbose):
-        batch.run(input, force)
+        if descriptor["caide"] is not False:
+            batch.run(input, force)
         return input
 
     return cf_caide_plugin
