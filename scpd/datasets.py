@@ -39,7 +39,7 @@ def cf_joern_plugin(builder, descriptor, input, force, verbose):
 
 def cf_caide_plugin(includes, *args, **kwargs):
     optimizer = CodeOptimizer(includes, *args, **kwargs)
-    batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer)
+    batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer, **kwargs)
 
     def cf_caide_plugin(builder, descriptor, input, force, verbose):
         if descriptor["caide"] is not False:

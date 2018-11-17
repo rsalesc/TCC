@@ -17,7 +17,7 @@ class OptimizerError(Exception):
 
 
 class CodeOptimizer:
-    def __init__(self, clang_includes, verbose=False, lines=1):
+    def __init__(self, clang_includes, verbose=False, lines=1, **kwargs):
         self._includes = clang_includes
         self._verbose = verbose
         self._lines = 1
@@ -35,7 +35,8 @@ class CodeOptimizer:
                     dir=d,
                     output=output_path,
                     lines=self._lines), input_path))
-            returncode = subprocess.call(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            returncode = subprocess.call(
+                args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if returncode != 0:
                 raise OptimizerError(
                     "Caide exited with non-zero code: {}".format(returncode))
@@ -43,11 +44,13 @@ class CodeOptimizer:
 
 
 class BatchSourceOptimizer():
-    def __init__(self, pool, optimizer, monitor=True, cache_along=True):
+    def __init__(self, pool, optimizer, monitor=True, cache_along=True,
+                 use_cache=False, **kwargs):
         self._pool = pool
         self._optimizer = optimizer
         self._monitor = monitor
         self._cache = cache_along
+        self._use_cache = use_cache
 
     def run(self, sources, force):
         futures = []
@@ -58,7 +61,9 @@ class BatchSourceOptimizer():
                 caide_path = "{}.caide".format(path)
                 if os.path.isfile(caide_path) and not force:
                     source._path = caide_path
-                    return
+                    return source
+            if self._use_cache:
+                return source
             code = source.fetch()
             caide_code = self._optimizer.run(code)
             if source.path() is not None and cache_along:
@@ -69,6 +74,7 @@ class BatchSourceOptimizer():
                 source._path = caide_path
             else:
                 source._code = caide_code
+            return source
 
         for source in sources:
             future = self._pool.submit(
@@ -87,7 +93,7 @@ class BatchSourceOptimizer():
                 enumerated.set_postfix(skipped=skipped)
             # TODO: better exception handling
             try:
-                sources.append(future.result(timeout=5))
+                sources[i] = future.result(timeout=5)
             except (OptimizerError, ):
                 skipped += 1
                 pass
