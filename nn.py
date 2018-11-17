@@ -540,7 +540,8 @@ def setup_tensorboard(args, nn):
 def setup_callbacks(args, checkpoint):
     res = []
     if not args.no_checkpoint:
-        args_fn = os.path.join(os.path.basename(checkpoint), ".args.pkl")
+        basename = os.path.splitext(checkpoint)[0]
+        args_fn = "{}.{}".format(basename, "args.pkl")
         with open(args_fn, "wb") as f:
             pickle.dump(args, f)
         if not args.period:
