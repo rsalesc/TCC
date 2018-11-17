@@ -82,6 +82,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     labels = tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
     pred = tf.cast(dist < th, tf.int32)
 
+    total = tf.size(labels)
     tp = pred * labels
     tn = (1 - pred) * (1 - labels)
     corr = tp + tn
@@ -112,6 +113,11 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
         res["cp"] = tf.reduce_sum(labels)
     if "cn" in d:
         res["cn"] = tf.reduce_sum(1 - labels)
+    if "err":
+        far = (tf.reduce_sum(pred, axis=0) - tp) / total
+        frr = (tf.reduce_sum(1 - pred, axis=0) - tn) / total
+        argmin = tf.argmin(tf.abs(far - frr), axis=-1)
+        return tf.gather((far - frr) / 2, argmin, axis=-1)
 
     if len(d) != len(res):
         raise NotImplementedError("some metrics were not implemented")
@@ -181,8 +187,8 @@ class BatchScorer:
             if metric == "eer":
                 far = self.result("far")
                 frr = self.result("frr")
-                argmin = tf.argmin(tf.abs(far - frr), axis=-1)
-                return tf.gather((far - frr) / 2, argmin, axis=-1)
+                argmin = np.argmin(np.abs(far - frr), axis=-1)
+                return np.array((far - frr) / 2)[..., argmin]
 
         raise NotImplementedError()
 
