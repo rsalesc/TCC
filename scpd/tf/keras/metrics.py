@@ -113,7 +113,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
         res["cp"] = tf.reduce_sum(labels)
     if "cn" in d:
         res["cn"] = tf.reduce_sum(1 - labels)
-    if "err":
+    if "eer":
         far = (tf.reduce_sum(pred, axis=0) - tp) / total
         frr = (tf.reduce_sum(1 - pred, axis=0) - tn) / total
         argmin = tf.argmin(tf.abs(far - frr), axis=-1)
