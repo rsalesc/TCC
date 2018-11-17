@@ -82,11 +82,11 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     labels = tf.cast(tf.reshape(labels, [-1, 1]), tf.int32)
     pred = tf.cast(dist < th, tf.int32)
 
-    total = tf.size(labels)
     tp = pred * labels
     tn = (1 - pred) * (1 - labels)
     corr = tp + tn
 
+    total = tf.cast(tf.size(labels), tf.float32)
     tp = tf.reduce_sum(tf.cast(tp, tf.float32), axis=0)
     tn = tf.reduce_sum(tf.cast(tn, tf.float32), axis=0)
     pred = tf.cast(pred, tf.float32)
