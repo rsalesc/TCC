@@ -17,10 +17,12 @@ class OfflineMetrics(Callback):
                  on_batch=[],
                  on_epoch=[],
                  validation_data=None,
+                 best_metric=None,
                  **kwargs):
         self._on_batch = _build_dict(on_batch)
         self._on_epoch = _build_dict(on_epoch)
         self._validation_data = validation_data
+        self._best_metric = best_metric
         super().__init__(*args, **kwargs)
 
     def set_params(self, params):
@@ -53,4 +55,6 @@ class OfflineMetrics(Callback):
             res = metric.result()
             assert len(res) == len(names)
             for i in range(len(res)):
+                if names[i] == self._best_metric:
+                    logs["best_metric"] = res[i]
                 logs[names[i]] = res[i]

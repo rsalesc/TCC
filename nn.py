@@ -399,7 +399,7 @@ def argparsing():
     parser.add_argument("--max-epochs", default=1000, type=int)
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--threads", type=int, default=None)
-    parser.add_argument("--period", type=int, default=3)
+    parser.add_argument("--period", type=int, default=0)
     parser.add_argument("--eval-every", type=int, default=None)
     parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--save-to", default=".cache/keras")
@@ -543,7 +543,14 @@ def setup_callbacks(args, checkpoint):
         args_fn = os.path.join(os.path.basename(checkpoint), ".args.pkl")
         with open(args_fn, "wb") as f:
             pickle.dump(args, f)
-        res.append(ModelCheckpoint(checkpoint, period=args.period))
+        if not args.period:
+            res.append(ModelCheckpoint(
+                checkpoint,
+                save_best_only=True,
+                monitor="best_metric",
+                mode="max"))
+        else:
+            res.append(ModelCheckpoint(checkpoint, period=args.period))
     return res
 
 
@@ -616,7 +623,9 @@ def run_triplet_mlp(args,
         metric=["precision", "accuracy", "recall"],
         argmax="accuracy")
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
+        on_epoch=[val_threshold_metric],
+        validation_data=validation_sequence,
+        best_metric="val_thresholded_accuracy")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
@@ -687,7 +696,9 @@ def run_triplet_lstm(args,
         metric=["precision", "accuracy", "recall"],
         argmax="accuracy")
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
+        on_epoch=[val_threshold_metric],
+        validation_data=validation_sequence,
+        best_metric="val_thresholded_accuracy")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
@@ -762,7 +773,9 @@ def run_triplet_cnn(args,
         metric=["precision", "accuracy", "recall"],
         argmax="accuracy")
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric], validation_data=validation_sequence)
+        on_epoch=[val_threshold_metric],
+        validation_data=validation_sequence,
+        best_metric="val_thresholded_accuracy")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
@@ -776,7 +789,7 @@ def run_triplet_cnn(args,
 def main(args):
     os.makedirs(args.save_to, exist_ok=True)
     checkpoint = os.path.join(args.save_to,
-                              "{model}.{loss}.{name}.{{epoch:04d}}.h5").format(
+                              "{model}.{loss}.{name}.h5").format(
                                   model=args.model,
                                   loss=(args.loss or "unknown"),
                                   name=args.name)
