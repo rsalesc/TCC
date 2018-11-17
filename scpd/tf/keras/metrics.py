@@ -166,6 +166,10 @@ class BatchScorer:
                 return self._tp / self._cp
             if metric == "specificity":
                 return self._tn / self._cn
+            if metric == "far":
+                return (self._pcp - self._tp) / self._total
+            if metric == "frr":
+                return (self._pcn - self._tn) / self._total
             if metric == "f1":
                 precision = self.result("precision")
                 recall = self.result("recall")
@@ -174,6 +178,11 @@ class BatchScorer:
                 recall = self.result("recall")
                 specificity = self.result("specificity")
                 return (recall + specificity) / 2
+            if metric == "eer":
+                far = self.result("far")
+                frr = self.result("frr")
+                argmin = tf.argmin(tf.abs(far - frr), axis=-1)
+                return tf.gather((far - frr) / 2, argmin, axis=-1)
 
         raise NotImplementedError()
 

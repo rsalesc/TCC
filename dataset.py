@@ -10,10 +10,13 @@ def newest():
         Descriptor("test", 200, 8, path=".cache/test.pkl")
     ]
 
-    plugins = [cf_codes_plugin]
+    plugins = [
+            cf_codes_plugin,
+            cf_caide_plugin("/usr/include/clang/3.6/include")
+    ]
 
     builder = Builder(descriptors, download=True, plugins=plugins)
-    builder.extract()
+    return builder.extract()
 
 
 def oldest():
@@ -33,4 +36,4 @@ def preloaded(paths):
 
 
 if __name__ == "__main__":
-    oldest()
+    newest()

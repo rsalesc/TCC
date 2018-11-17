@@ -7,6 +7,7 @@ import string
 import shutil
 import os
 import math
+import pickle
 import time
 
 from bisect import bisect
@@ -539,6 +540,9 @@ def setup_tensorboard(args, nn):
 def setup_callbacks(args, checkpoint):
     res = []
     if not args.no_checkpoint:
+        args_fn = os.path.join(os.path.basename(checkpoint), ".args.pkl")
+        with open(args_fn, "wb") as f:
+            pickle.dump(args, f)
         res.append(ModelCheckpoint(checkpoint, period=args.period))
     return res
 
@@ -671,7 +675,7 @@ def run_triplet_lstm(args,
         dropout_inter=args.dropout_inter,
         margin=args.margin,
         optimizer=optimizer,
-        metric=["precision", "recall", "accuracy"])
+        metric=["eer", "accuracy"])
 
     build_scpd_model(nn)
     nn.compile()
