@@ -45,7 +45,7 @@ def gcj_random():
     return builder.extract()
 
 
-def preloaded(paths):
+def preloaded(paths, caide=False):
     descriptors = [Descriptor(path, None, None, path=path) for path in paths]
 
     plugins = [

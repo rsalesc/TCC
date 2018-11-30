@@ -375,7 +375,7 @@ def load_embedding_dataset(args):
     if args.procedural_dataset == "single":
         return build_single_alpha(20, args.input_crop)
 
-    return dataset.preloaded([args.validation_file])[0]
+    return dataset.preloaded([args.validation_file], caide=args.caide)[0]
 
 
 def load_dataset(args):
@@ -389,7 +389,7 @@ def load_dataset(args):
             20, args.input_crop)
 
     training_sources, validation_sources = dataset.preloaded(
-        [args.training_file, args.validation_file])
+        [args.training_file, args.validation_file], caide=args.caide)
     return training_sources, validation_sources
 
 
@@ -419,6 +419,7 @@ def argparsing():
 
     parser.add_argument(
         "--procedural-dataset", choices=["alpha", "single"], default=None)
+    parser.add_argument("--caide", default=False, action="store_true")
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
 
