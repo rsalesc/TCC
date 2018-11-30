@@ -120,7 +120,7 @@ def printer(resp):
 CODEFORCES_POOL = RequestsPool(
     4, throttler=Throttler(3.5), session=Session(), sender=cf_send_request)
 HTTP_POOL = RequestsPool(
-    2, throttler=Throttler(1), session=Session(), sender=json_send_request)
+    2, throttler=Throttler(8), session=Session(), sender=json_send_request)
 PROCESSING_POOL = concur.ThreadPoolExecutor(max_workers=4)
 CSRF_TOKEN = csrf_token_getter(HTTP_POOL._session)
 
@@ -272,7 +272,7 @@ class DiskCodeExtractor():
             output_path = get_cached_json(str(submission.id))
             if future is not None:
                 try:
-                    r = future.result(timeout=5)
+                    r = future.result(timeout=20)
                     r = r.json()
                     with utils.opens(output_path, "w") as f:
                         f.write(r["source"])

@@ -86,6 +86,7 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     tn = (1 - pred) * (1 - labels)
     corr = tp + tn
 
+    total = tf.cast(tf.size(labels), tf.float32)
     tp = tf.reduce_sum(tf.cast(tp, tf.float32), axis=0)
     tn = tf.reduce_sum(tf.cast(tn, tf.float32), axis=0)
     pred = tf.cast(pred, tf.float32)
@@ -112,6 +113,11 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
         res["cp"] = tf.reduce_sum(labels)
     if "cn" in d:
         res["cn"] = tf.reduce_sum(1 - labels)
+    if "eer" in d:
+        far = (tf.reduce_sum(pred, axis=0) - tp) / total
+        frr = (tf.reduce_sum(1 - pred, axis=0) - tn) / total
+        argmin = tf.argmin(tf.abs(far - frr), axis=-1)
+        res["eer"] = tf.gather((far + frr) / 2, argmin, axis=-1)
 
     if len(d) != len(res):
         raise NotImplementedError("some metrics were not implemented")
@@ -166,6 +172,10 @@ class BatchScorer:
                 return self._tp / self._cp
             if metric == "specificity":
                 return self._tn / self._cn
+            if metric == "far":
+                return (self._pcp - self._tp) / self._total
+            if metric == "frr":
+                return (self._pcn - self._tn) / self._total
             if metric == "f1":
                 precision = self.result("precision")
                 recall = self.result("recall")
@@ -174,6 +184,11 @@ class BatchScorer:
                 recall = self.result("recall")
                 specificity = self.result("specificity")
                 return (recall + specificity) / 2
+            if metric == "eer":
+                far = self.result("far")
+                frr = self.result("frr")
+                argmin = np.argmin(np.abs(far - frr), axis=-1)
+                return np.array((far - frr) / 2)[..., argmin]
 
         raise NotImplementedError()
 

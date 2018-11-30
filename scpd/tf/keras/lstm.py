@@ -40,6 +40,7 @@ def has_gpu():
 
 def mask_dropout(p):
     keep_prob = 1.0 - p
+
     def mask_dropout(x, mask):
         if mask is None:
             mask = tf.ones_like(x)
@@ -75,8 +76,10 @@ class TripletLineLSTM(BaseModel):
         self._alphabet_size = alphabet_size
         self._embedding_size = embedding_size
         self._output_size = output_size
-        self._line_capacity = line_capacity if isinstance(line_capacity, list) else [line_capacity]
-        self._char_capacity = char_capacity if isinstance(char_capacity, list) else [char_capacity]
+        self._line_capacity = line_capacity if isinstance(
+            line_capacity, list) else [line_capacity]
+        self._char_capacity = char_capacity if isinstance(
+            char_capacity, list) else [char_capacity]
         self._optimizer = optimizer
         self._dropout_line = dropout_line
         self._dropout_char = dropout_char
@@ -123,7 +126,8 @@ class TripletLineLSTM(BaseModel):
 
         for i, cap in enumerate(self._char_capacity):
             is_last = (i + 1 == len(self._char_capacity))
-            x = TimeDistributed(LSTM(cap, dropout=self._dropout_char, return_sequences=(not is_last)))(x)
+            x = TimeDistributed(
+                LSTM(cap, dropout=self._dropout_char, return_sequences=(not is_last)))(x)
 
         # get mask on original input and apply it to current output
         # (resets whatever mask is being propagated)
@@ -137,7 +141,8 @@ class TripletLineLSTM(BaseModel):
 
         for i, cap in enumerate(self._line_capacity):
             is_last = (i + 1 == len(self._line_capacity))
-            x = Bidirectional(LSTM(cap, dropout=self._dropout_line, return_sequences=(not is_last)))(x)
+            x = Bidirectional(
+                LSTM(cap, dropout=self._dropout_line, return_sequences=(not is_last)))(x)
 
         # x = Dense(128, activation="relu")(x)
         # x = Dropout(self._dropout_fc)(x)

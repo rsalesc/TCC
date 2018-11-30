@@ -2,19 +2,12 @@ import os
 import pickle
 from abc import ABCMeta, abstractmethod
 
-from . import utils
+from . import utils, gcj
 from .cf import (ParticipantExtractor, get_cached_rated_list,
                  BatchSubmissionExtractor, CODEFORCES_POOL, FilterProvider,
                  DiskCodeExtractor, HTTP_POOL, PROCESSING_POOL)
 from .joern.parser import BatchJoernParser
 from .caide.optimizer import CodeOptimizer, BatchSourceOptimizer
-
-
-class DatasetBuilder(metaclass=ABCMeta):
-    @abstractmethod
-    def extract(self, force=False):
-        """Returns a set of SourceCode training and test objects."""
-        raise NotImplementedError()
 
 
 def extract_cf_codes(submissions, download):
@@ -29,6 +22,10 @@ def extract_joern_codes(sources, force=False):
     return parser.parse(force=force)
 
 
+def gcj_codes_plugin(builder, descriptor, input, force, verbose):
+    return [sub.get_source() for sub in input]
+
+
 def cf_codes_plugin(builder, descriptor, input, force, verbose):
     return extract_cf_codes(input, builder._download)
 
@@ -39,14 +36,22 @@ def cf_joern_plugin(builder, descriptor, input, force, verbose):
 
 def cf_caide_plugin(includes, *args, **kwargs):
     optimizer = CodeOptimizer(includes, *args, **kwargs)
-    batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer)
-    should_load = True if "load" not in kwargs or kwargs["load"] else False
+    batch = BatchSourceOptimizer(PROCESSING_POOL, optimizer, **kwargs)
 
     def cf_caide_plugin(builder, descriptor, input, force, verbose):
-        batch.run(input, force, load=should_load)
+        if descriptor["caide"] is not False:
+            batch.run(input, force)
         return input
 
     return cf_caide_plugin
+
+
+def joern_plugin(*args, **kwargs):
+    return cf_joern_plugin(*args, **kwargs)
+
+
+def caide_plugin(*args, **kwargs):
+    return cf_caide_plugin(*args, **kwargs)
 
 
 class CodeforcesDescriptor:
@@ -62,24 +67,33 @@ class CodeforcesDescriptor:
             return None
         return self._kwargs[key]
 
+    def path(self):
+        return self["path"]
 
-class CodeforcesDisjointDatasetBuilder:
-    SUBMISSION_API_COUNT = 10000
 
-    def __init__(self, descriptors, download=True, plugins=[]):
+class CodejamDescriptor(CodeforcesDescriptor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DatasetBuilder:
+    def __init__(self, descriptors, plugins=[]):
         self._plugins = list(plugins)
         self._descriptors = descriptors
-        self._download = download
-        self._participant_extractor = ParticipantExtractor(
-            get_cached_rated_list())
 
-    def get_dataset_sizes(self):
-        return list(map(lambda x: x.participants, self._descriptors))
+    def plugins(self):
+        return self._plugins
+
+    def descriptors(self):
+        return self._descriptors
 
     def fetch_datasets(self):
+        pass
+
+    def check_cache_for_datasets(self):
         are_cached = 0
         for descriptor in self._descriptors:
-            path = descriptor["path"]
+            path = descriptor.path()
             if path is not None:
                 path = os.path.abspath(path)
                 if os.path.isfile(path):
@@ -88,32 +102,21 @@ class CodeforcesDisjointDatasetBuilder:
         if are_cached == len(self._descriptors):
             res = []
             for descriptor in self._descriptors:
-                path = os.path.abspath(descriptor["path"])
+                path = os.path.abspath(descriptor.path())
                 dataset = pickle.load(utils.opens(path, "rb", encoding=None))
                 assert isinstance(dataset, list)
                 res.append(dataset)
             return res
         elif are_cached > 0:
-            raise AssertionError("have only partial disjoint datasets")
+            raise AssertionError("have only partial datasets")
 
-        participants = self._participant_extractor.extract(
-            self.get_dataset_sizes())
-        res = []
-        for i, p in enumerate(participants):
-            descriptor = self._descriptors[i]
-            extractor = BatchSubmissionExtractor(
-                CODEFORCES_POOL,
-                p,
-                count=CodeforcesDisjointDatasetBuilder.SUBMISSION_API_COUNT)
-            dataset = extractor.extract(
-                FilterProvider().filter(),
-                limit=descriptor.submissions_per_participant)
-            if descriptor["path"] is not None:
-                path = os.path.abspath(descriptor["path"])
-                with utils.opens(path, "wb") as f:
-                    pickle.dump(dataset, f)
-            res.append(dataset)
-        return res
+        return None
+
+    def cache_descriptor(self, descriptor, dataset):
+        if descriptor.path() is not None:
+            path = os.path.abspath(descriptor.path())
+            with utils.opens(path, "wb") as f:
+                pickle.dump(dataset, f)
 
     def extract(self, force=False, verbose=True):
         datasets = self.fetch_datasets()
@@ -124,6 +127,73 @@ class CodeforcesDisjointDatasetBuilder:
                 print("Processing descriptor {}...".format(descriptor.name))
             for plugin in self._plugins:
                 dataset = plugin(self, descriptor, dataset, force, verbose)
+            res.append(dataset)
+        return res
+
+
+class CodejamDisjointDatasetBuilder(DatasetBuilder):
+    def __init__(self, descriptors, years, lang, at_least=1, plugins=[]):
+        super().__init__(descriptors, plugins=plugins)
+        self._years = [str(year) for year in years]
+        self._lang = lang
+        self._at_least = at_least
+        self._participant_extractor = gcj.RandomParticipantExtractor(
+            years, lang)
+        self._submission_extractor = gcj.RandomSubmissionExtractor(years, lang)
+
+    def get_dataset_sizes(self):
+        return list(map(lambda x: x.participants, self._descriptors))
+
+    def fetch_datasets(self):
+        cached_datasets = self.check_cache_for_datasets()
+        if cached_datasets is not None:
+            return cached_datasets
+
+        participants = self._participant_extractor.extract(
+            self.get_dataset_sizes(), at_least=self._at_least)
+
+        res = []
+        for i, p in enumerate(participants):
+            descriptor = self.descriptors()[i]
+            dataset = self._submission_extractor.extract(
+                p, limit=descriptor.submissions_per_participant)
+            self.cache_descriptor(descriptor, dataset)
+            res.append(dataset)
+
+        return res
+
+
+class CodeforcesDisjointDatasetBuilder(DatasetBuilder):
+    SUBMISSION_API_COUNT = 10000
+
+    def __init__(self, descriptors, download=True, plugins=[]):
+        super().__init__(descriptors, plugins=plugins)
+        self._download = download
+        self._participant_extractor = ParticipantExtractor(
+            get_cached_rated_list())
+
+    def get_dataset_sizes(self):
+        return list(map(lambda x: x.participants, self._descriptors))
+
+    def fetch_datasets(self):
+        cached_datasets = self.check_cache_for_datasets()
+        if cached_datasets is not None:
+            return cached_datasets
+
+        participants = self._participant_extractor.extract(
+            self.get_dataset_sizes())
+
+        res = []
+        for i, p in enumerate(participants):
+            descriptor = self._descriptors[i]
+            extractor = BatchSubmissionExtractor(
+                CODEFORCES_POOL,
+                p,
+                count=CodeforcesDisjointDatasetBuilder.SUBMISSION_API_COUNT)
+            dataset = extractor.extract(
+                FilterProvider().filter(),
+                limit=descriptor.submissions_per_participant)
+            self.cache_descriptor(descriptor, dataset)
             res.append(dataset)
         return res
 
