@@ -1,6 +1,8 @@
 from scpd.datasets import CodeforcesDisjointDatasetBuilder as Builder
 from scpd.datasets import CodeforcesDescriptor as Descriptor
-from scpd.datasets import cf_codes_plugin, cf_joern_plugin, cf_caide_plugin
+from scpd.datasets import cf_codes_plugin, cf_caide_plugin
+from scpd.datasets import CodejamDisjointDatasetBuilder as CodejamBuilder
+from scpd.datasets import CodejamDescriptor, gcj_codes_plugin
 
 
 def newest():
@@ -11,8 +13,8 @@ def newest():
     ]
 
     plugins = [
-            cf_codes_plugin,
-            cf_caide_plugin("/usr/include/clang/3.6/include")
+        cf_codes_plugin,
+        cf_caide_plugin("/usr/include/clang/3.6/include")
     ]
 
     builder = Builder(descriptors, download=True, plugins=plugins)
@@ -21,6 +23,26 @@ def newest():
 
 def oldest():
     return preloaded(["submissions_training.dat", "submissions_test.dat"])
+
+
+def gcj_random():
+    descriptors = [
+        CodejamDescriptor("training", 512, 12, path=".cache/gcj.training.pkl"),
+        CodejamDescriptor("validation", 64, 8,
+                          path=".cache/gcj.validation.pkl"),
+        CodejamDescriptor("test", 128, 8, path=".cache/gcj.test.pkl")
+    ]
+
+    plugins = [
+        gcj_codes_plugin,
+        cf_caide_plugin("/usr/include/clang/3.6/include")
+    ]
+    years = [2014]
+    lang = "cpp"
+
+    builder = CodejamBuilder(descriptors, years, lang,
+                             at_least=8, plugins=plugins)
+    return builder.extract()
 
 
 def preloaded(paths):
@@ -36,4 +58,4 @@ def preloaded(paths):
 
 
 if __name__ == "__main__":
-    newest()
+    gcj_random()

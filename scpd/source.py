@@ -42,7 +42,10 @@ class SourceCode():
         if self._code is not None:
             return self._code
         elif self._path is not None:
-            return open(self._path, encoding="utf-8").read()
+            try:
+                return open(self._path, encoding="utf-8").read()
+            except UnicodeDecodeError:
+                return open(self._path, encoding="iso-8859-1").read()
         else:
             raise AssertionError('No source code')
 
