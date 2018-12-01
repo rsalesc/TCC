@@ -195,7 +195,7 @@ class CategoricalCodeSequence(Sequence):
                                self._batch_size]
         labels = self._labels[idx * self._batch_size:(idx + 1) *
                               self._batch_size]
-        return self.ex_.extract_batch_x(batch), np.array(labels)
+        return self._ex_.extract_batch_x(batch), np.array(labels)
 
 
 class CodeForTripletGenerator:
