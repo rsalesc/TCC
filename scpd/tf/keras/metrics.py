@@ -148,15 +148,17 @@ def categorical_score(y_true, y_pred, metric="accuracy"):
     labels = tf.argmax(y_true, axis=-1)
     labeled = tf.argmax(y_pred, axis=-1)
 
+    corr = tf.equal(labels, labeled)
+    corr = tf.cast(corr, tf.float32)
     total = tf.shape(labels)[0]
 
     if "total" in d:
         return total
     if "correct" in d:
-        return tf.reduce_sum(tf.equal(labels, labeled), axis=0)
+        return tf.reduce_sum(corr, axis=0)
 
     if "accuracy" in d:
-        res["accuracy"] = tf.reduce_mean(tf.equal(labels, labeled), axis=0)
+        res["accuracy"] = tf.reduce_mean(corr, axis=0)
 
     if len(d) != len(res):
         raise NotImplementedError("some metrics were not implemented")
