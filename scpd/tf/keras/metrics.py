@@ -232,6 +232,44 @@ class FlatPairBatchScorer(ContrastiveBatchScorer):
         return super().score(y_true, dist, metric)
 
 
+class CategoricalBatchScorer:
+    def __init__(self):
+        self._correct = 0
+        self._total = 0
+
+    def handle(self, y_true, y_pred):
+        d = self.score(y_true, y_pred, ["correct", "total"])
+        self._correct += d["correct"]
+        self._total += d["total"]
+
+    def score(self, y_true, y_pred, metric):
+        res = {}
+        classes = np.shape(y_pred)[-1]
+        y_hot = np.eye(classes)[np.argmax(y_pred, axis=-1)]
+        y_true = np.array(y_true)
+
+        if "correct" in metric:
+            mask = np.sum(np.equal(y_true, y_hot), axis=-1)
+            mask = np.equal(mask, classes)
+            res["correct"] = np.sum(mask)
+        if "total" in metric:
+            res["total"] = np.shape(y_hot)[0]
+
+        if len(metric) != len(res):
+            raise NotImplementedError()
+
+        return res
+
+    def result(self, metric):
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings("ignore")
+
+            if metric == "accuracy":
+                return self._correct / self._total
+
+        raise NotImplementedError()
+
+
 class ContrastiveOnKerasMetric:
     def __init__(self, margin, metric="accuracy"):
         self.__name__ = "contrastive_{}".format(metric)
@@ -258,6 +296,17 @@ class TripletOnKerasMetric:
             embeddings,
             tf.convert_to_tensor(self._margin),
             metric=self._metric)
+
+
+class CategoricalOnKerasMetric:
+    def __init__(self, metric="accuracy"):
+        self.__name__ = "categorical_{}".format(metric)
+        self._metric = metric
+
+    def __call__(self, labels, embeddings):
+        scorer = CategoricalBatchScorer()
+        scorer.handle(labels, embeddings)
+        return scorer.result(self._metric)
 
 
 class OfflineMetric:
@@ -337,3 +386,21 @@ class FlatPairValidationMetric(SimilarityValidationMetric):
 
     def reset(self):
         self._scorer = FlatPairBatchScorer(self._margin)
+
+
+class CategoricalValidationMetric(OfflineMetric):
+    def __init__(self, metric=["accuracy"]):
+        self._metric = list(metric)
+        self._scorer = None
+
+    def name(self):
+        return tuple(["val_{}".format(x) for x in self._metric])
+
+    def handle_batch(self, model, x, labels, pred):
+        self._scorer.handle(labels, pred)
+
+    def result(self):
+        return tuple([self._scorer.result(x) for x in self._metric])
+
+    def reset(self):
+        self._scorer = CategoricalBatchScorer()

@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 import pandas as pd
+from sklearn.preprocessing import LabelBinarizer
 
 
 def opens(*args, encoding="utf-8", **kwargs):
@@ -76,6 +77,28 @@ def isiterable(iterable):
         return True
     except TypeError:
         return False
+
+
+def extract_one_hot(list_sources, classes=None):
+    labeler = LabelBinarizer()
+    authors = {}
+    for sources in list_sources:
+        for source in sources:
+            authors[source.author()] = 1
+
+    author_list = authors.keys()
+    author_list.sort()
+    labeler.fit(author_list)
+
+    res = []
+    for sources in list_sources:
+        labels = [x.author() for x in sources]
+        res.append(labeler.transform(labels))
+
+    if classes is not None:
+        assert classes == len(labeler.classes_)
+
+    return res
 
 
 class LinearDecay:

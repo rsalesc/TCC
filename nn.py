@@ -20,12 +20,13 @@ from keras.callbacks import TensorBoard, EarlyStopping
 from sklearn.preprocessing import LabelEncoder
 
 from scpd.source import SourceCode
-from scpd.utils import ObjectPairing, opens, LinearDecay
+from scpd.utils import ObjectPairing, opens, LinearDecay, extract_one_hot
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
-from scpd.tf.keras.lstm import TripletLineLSTM
+from scpd.tf.keras.lstm import TripletLineLSTM, TripletSoftmaxLSTM
 from scpd.tf.keras.mlp import TripletMLP
 from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
+                                   CategoricalValidationMetric,
                                    FlatPairValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
 from basics import (TRAINING_PKL, TEST_PKL,
@@ -173,6 +174,27 @@ class CodeSequence(Sequence):
                                self._batch_size]
         labels = LabelEncoder().fit_transform(
             list(map(lambda x: x.author(), batch)))
+        return self.ex_.extract_batch_x(batch), np.array(labels)
+
+
+class CategoricalCodeSequence(Sequence):
+    def __init__(self, sequence, labels, batch_size, input_size=None, fn=None):
+        assert fn is not None
+        assert len(sequence) == len(labels)
+        self._sequence = sequence
+        self._labels = labels
+        self._batch_size = batch_size
+        self._input_size = input_size
+        self._ex = NeuralFeatureExtractor(fn, input_size)
+
+    def __len__(self):
+        return (len(self._sequence) + self._batch_size - 1) // self._batch_size
+
+    def __getitem__(self, idx):
+        batch = self._sequence[idx * self._batch_size:(idx + 1) *
+                               self._batch_size]
+        labels = self._labels[idx * self._batch_size:(idx + 1) *
+                              self._batch_size]
         return self.ex_.extract_batch_x(batch), np.array(labels)
 
 
@@ -379,6 +401,8 @@ def load_embedding_dataset(args):
 
 
 def load_dataset(args):
+    if args.dataset_func:
+        return args.dataset_func(args)
     random.seed(MAGICAL_SEED)
 
     if args.procedural_dataset == "alpha":
@@ -393,6 +417,14 @@ def load_dataset(args):
     return training_sources, validation_sources
 
 
+def load_gcj_easiest_dataset(args):
+    random.seed(MAGICAL_SEED)
+
+    training_sources, validation_sources, _ = dataset.preloaded_gcj_easiest(
+        [args.training_file], caide=args.caide)
+    return training_sources, validation_sources
+
+
 def argparsing():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", default=0, type=int)
@@ -404,7 +436,8 @@ def argparsing():
     parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--lr-decay", default=0, type=float)
     parser.add_argument("--patience", default=10, type=int)
-    parser.add_argument("--optimizer", default="adam", choices=["adam", "rmsprop"])
+    parser.add_argument("--optimizer", default="adam",
+                        choices=["adam", "rmsprop"])
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
@@ -476,6 +509,7 @@ def argparsing():
     lstm_subparsers.required = True
 
     lstm_triplet = lstm_subparsers.add_parser("triplet")
+    lstm_softmax = lstm_subparsers.add_parser("softmax")
 
     lstm.add_argument("--char-embedding-size", type=int, default=70)
     lstm.add_argument("--embedding-size", type=int, default=128)
@@ -494,6 +528,11 @@ def argparsing():
     lstm_triplet.add_argument("--samples-per-class", type=int, default=6)
     lstm_triplet.set_defaults(func=run_triplet_lstm)
     lstm_triplet.set_defaults(emb_func=get_embedding_triplet_lstm)
+
+    lstm_softmax.add_argument("--batch-size", type=int, default=32)
+    lstm_softmax.add_argument("--hidden-size", type=int, default=128)
+    lstm_softmax.add_argument("--classes", type=int, required=True)
+    lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
 
     return parser.parse_args()
 
@@ -806,6 +845,68 @@ def run_triplet_cnn(args,
         initial_epoch=args.epoch)
 
 
+def run_softmax_lstm(args,
+                     training_sources,
+                     validation_sources,
+                     load=None,
+                     callbacks=[]):
+    random.shuffle(training_sources)
+    random.shuffle(validation_sources)
+    input_size = (args.max_lines, args.max_chars)
+    extract_fn = extract_hierarchical_features
+
+    training_labels, validation_labels = extract_one_hot(
+        [training_sources, validation_sources], args.classes)
+
+    training_sequence = (
+        CategoricalCodeSequence(training_sources,
+                                training_labels,
+                                input_size=input_size,
+                                batch_size=args.batch_size,
+                                fn=extract_fn))
+
+    validation_sequence = (
+        CategoricalCodeSequence(validation_sources,
+                                validation_labels,
+                                input_size=input_size,
+                                batch_size=args.validation_batch_size,
+                                fn=extract_fn))
+
+    optimizer = setup_optimizer(args)
+    nn = TripletSoftmaxLSTM(
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        char_capacity=args.char_capacity,
+        line_capacity=args.line_capacity,
+        dropout_char=args.dropout_char,
+        dropout_line=args.dropout_line,
+        dropout_fc=args.dropout_fc,
+        dropout_inter=args.dropout_inter,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric=["accuracy"])
+
+    build_scpd_model(nn)
+    nn.compile()
+    print(nn.model.summary())
+
+    val_metric = CategoricalValidationMetric(
+        metric=["accuracy"])
+    om = OfflineMetrics(
+        on_epoch=[val_metric],
+        validation_data=validation_sequence,
+        best_metric="val_accuracy")
+    tb = setup_tensorboard(args, nn)
+
+    nn.train(
+        training_sequence,
+        callbacks=[om, tb] + callbacks,
+        epochs=args.max_epochs,
+        steps_per_epoch=len(training_sequence),
+        initial_epoch=args.epoch)
+
+
 def main(args):
     os.makedirs(args.save_to, exist_ok=True)
     checkpoint = os.path.join(args.save_to,
@@ -837,6 +938,4 @@ def main(args):
 if __name__ == "__main__":
     args = argparsing()
     configure(args)
-
-    import sys
     main(args)

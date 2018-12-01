@@ -8,7 +8,7 @@ from keras.layers import RNN, LSTMCell
 
 from .common import (l2_normalization, triplet_loss)
 from .base import BaseModel
-from .metrics import TripletOnKerasMetric
+from .metrics import TripletOnKerasMetric, CategoricalOnKerasMetric
 
 
 def select_cols(x, L):
@@ -89,6 +89,7 @@ class TripletLineLSTM(BaseModel):
         self._margin = margin
         self._triplet_loss_fn = triplet_loss(margin)
 
+        self._metric_names = metric
         self._metric = list(map(lambda x: TripletOnKerasMetric(
                             metric_margin or self._margin, metric=x), metric))
 
@@ -127,7 +128,8 @@ class TripletLineLSTM(BaseModel):
         for i, cap in enumerate(self._char_capacity):
             is_last = (i + 1 == len(self._char_capacity))
             x = TimeDistributed(
-                LSTM(cap, dropout=self._dropout_char, return_sequences=(not is_last)))(x)
+                LSTM(cap, dropout=self._dropout_char,
+                     return_sequences=(not is_last)))(x)
 
         # get mask on original input and apply it to current output
         # (resets whatever mask is being propagated)
@@ -142,7 +144,8 @@ class TripletLineLSTM(BaseModel):
         for i, cap in enumerate(self._line_capacity):
             is_last = (i + 1 == len(self._line_capacity))
             x = Bidirectional(
-                LSTM(cap, dropout=self._dropout_line, return_sequences=(not is_last)))(x)
+                LSTM(cap, dropout=self._dropout_line,
+                     return_sequences=(not is_last)))(x)
 
         # x = Dense(128, activation="relu")(x)
         # x = Dropout(self._dropout_fc)(x)
@@ -155,3 +158,29 @@ class TripletLineLSTM(BaseModel):
 
     def embeddings_to_watch(self):
         return ["output"]
+
+
+class SoftmaxLineLSTM(TripletLineLSTM):
+    def __init__(self, *args, classes=None, hidden_size=128, **kwargs):
+        assert classes is not None
+        self._classes = classes
+        self._hidden_size = hidden_size
+        super().__init__(*args, **kwargs)
+        self._metric = [CategoricalOnKerasMetric(metric=x) for x
+                        in self._metric_names]
+
+    def build(self):
+        x = Input(shape=self.input_shape(), dtype="int32")
+        embeddings = self.SiamesisNetwork()(x)
+        a = Dense(self._hidden_size, activation="softmax")(embeddings)
+
+        self.model = Model(x, a)
+
+    def compile(self):
+        self.model.compile(
+            loss="categorical_crossentropy",
+            optimizer=self._optimizer,
+            metrics=self._metric)
+
+    def embeddings_to_watch(self):
+        return []
