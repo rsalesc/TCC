@@ -48,10 +48,9 @@ def gcj_random():
 def preloaded(paths, caide=False):
     descriptors = [Descriptor(path, None, None, path=path) for path in paths]
 
-    plugins = [
-        cf_codes_plugin,
-        cf_caide_plugin("/usr/include/clang/3.6/include", use_cache=True)
-    ]
+    plugins = [cf_codes_plugin]
+    if caide:
+      plugins.append(cf_caide_plugin("/usr/include/clang/3.6/include", use_cache=True))
 
     builder = Builder(descriptors, download=False, plugins=plugins)
     return builder.extract()
