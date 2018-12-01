@@ -160,3 +160,37 @@ class RandomSubmissionExtractor:
                         for problem in problems])
 
         return res
+
+
+class EasiestSubmissionExtractor:
+    def __init__(self, years, lang):
+        self._years = years
+        self._problems = {}
+        self._users = []
+        self._language = lang
+        for year in years:
+            problems = get_year_problems(year, lang)
+            for key, value in problems:
+                self._problems[key] = value
+            self._users.extend(get_year_users(year, lang))
+
+    def extract(self, users, limit):
+        wanted = sum(limit)
+        res = [[] for _ in limit]
+        for user in users:
+            solved = {}
+            for year in self._years:
+                solved.update(get_user_stats_for_year(
+                    user, year, self._language))
+
+            problems = list(solved.keys())
+            problems.sort(key=lambda x: self._problems[x])
+            assert len(problems) >= wanted
+
+            acc = 0
+            for i, sz in enumerate(limit):
+                res[i].extend([Submission(user, problem, self._language)
+                               for problem in problems[acc:acc + sz]])
+                acc += sz
+
+        return res

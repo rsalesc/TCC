@@ -2,6 +2,7 @@ from scpd.datasets import CodeforcesDisjointDatasetBuilder as Builder
 from scpd.datasets import CodeforcesDescriptor as Descriptor
 from scpd.datasets import cf_codes_plugin, cf_caide_plugin
 from scpd.datasets import CodejamDisjointDatasetBuilder as CodejamBuilder
+from scpd.datasets import CodejamEasiestDatasetBuilder as CodejamEasiestBuilder
 from scpd.datasets import CodejamDescriptor, gcj_codes_plugin
 
 
@@ -45,16 +46,31 @@ def gcj_random():
     return builder.extract()
 
 
+def gcj_easiest():
+    descriptors = [
+        CodejamDescriptor("easiest", 250, (8, 1, 2),
+                          path=".cache/gcj.easiest.pkl")
+    ]
+
+    plugins = [gcj_codes_plugin]
+    years = [2014]
+    lang = "cpp"
+
+    builder = CodejamEasiestBuilder(descriptors, years, lang, plugins=plugins)
+    return builder.extract()
+
+
 def preloaded(paths, caide=False):
     descriptors = [Descriptor(path, None, None, path=path) for path in paths]
 
     plugins = [cf_codes_plugin]
     if caide:
-      plugins.append(cf_caide_plugin("/usr/include/clang/3.6/include", use_cache=True))
+        plugins.append(cf_caide_plugin(
+            "/usr/include/clang/3.6/include", use_cache=True))
 
     builder = Builder(descriptors, download=False, plugins=plugins)
     return builder.extract()
 
 
 if __name__ == "__main__":
-    gcj_random()
+    print(len(gcj_easiest()[2]))

@@ -90,6 +90,12 @@ class DatasetBuilder:
     def fetch_datasets(self):
         pass
 
+    def load_dataset(self, loaded, dataset):
+        loaded.append(dataset)
+
+    def get_descriptor_dataset_count(self, descriptor):
+        return 1
+
     def check_cache_for_datasets(self):
         are_cached = 0
         for descriptor in self._descriptors:
@@ -105,7 +111,7 @@ class DatasetBuilder:
                 path = os.path.abspath(descriptor.path())
                 dataset = pickle.load(utils.opens(path, "rb", encoding=None))
                 assert isinstance(dataset, list)
-                res.append(dataset)
+                self.load_dataset(res, dataset)
             return res
         elif are_cached > 0:
             raise AssertionError("have only partial datasets")
@@ -120,14 +126,24 @@ class DatasetBuilder:
 
     def extract(self, force=False, verbose=True):
         datasets = self.fetch_datasets()
+        expected_datsets = sum(
+            map(lambda x: self.get_descriptor_dataset_count(x),
+                self._descriptors))
+        assert len(datasets) == expected_datsets
+
         res = []
-        for i, dataset in enumerate(datasets):
-            descriptor = self._descriptors[i]
+        i = 0
+        for descriptor in self._descriptors:
             if verbose:
                 print("Processing descriptor {}...".format(descriptor.name))
-            for plugin in self._plugins:
-                dataset = plugin(self, descriptor, dataset, force, verbose)
-            res.append(dataset)
+            for j in range(self.get_descriptor_dataset_count(descriptor)):
+                for plugin in self._plugins:
+                    datasets[i] = plugin(
+                        self, descriptor, datasets[i], force, verbose)
+                res.append(datasets[i])
+                i += 1
+
+        assert len(datasets) == len(res)
         return res
 
 
@@ -158,7 +174,49 @@ class CodejamDisjointDatasetBuilder(DatasetBuilder):
             dataset = self._submission_extractor.extract(
                 p, limit=descriptor.submissions_per_participant)
             self.cache_descriptor(descriptor, dataset)
-            res.append(dataset)
+            self.load_dataset(res, dataset)
+
+        return res
+
+
+class CodejamEasiestDatasetBuilder(DatasetBuilder):
+    def __init__(self, descriptors, years, lang, plugins=[]):
+        super().__init__(descriptors, plugins=plugins)
+        self._years = [str(year) for year in years]
+        self._lang = lang
+        self._participant_extractor = gcj.RandomParticipantExtractor(
+            years, lang)
+        self._submission_extractor = gcj.EasiestSubmissionExtractor(
+            years, lang)
+
+    def get_dataset_sizes(self):
+        return list(map(lambda x: x.participants, self._descriptors))
+
+    def get_at_least(self):
+        return max(map(lambda x: sum(x.submissions_per_participant),
+                       self._descriptors))
+
+    def load_dataset(self, loaded, dataset):
+        loaded.extend(dataset)
+
+    def get_descriptor_dataset_count(self, descriptor):
+        return len(descriptor.submissions_per_participant)
+
+    def fetch_datasets(self):
+        cached_datasets = self.check_cache_for_datasets()
+        if cached_datasets is not None:
+            return cached_datasets
+
+        participants = self._participant_extractor.extract(
+            self.get_dataset_sizes(), at_least=self.get_at_least())
+
+        res = []
+        for i, p in enumerate(participants):
+            descriptor = self.descriptors()[i]
+            dataset = self._submission_extractor.extract(
+                p, limit=descriptor.submissions_per_participant)
+            self.cache_descriptor(descriptor, dataset)
+            self.load_dataset(res, dataset)
 
         return res
 
