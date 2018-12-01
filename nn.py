@@ -602,7 +602,7 @@ def setup_callbacks(args, checkpoint):
         patience=args.patience,
         monitor="best_metric",
         mode="max",
-        min_delta=0.005))
+        min_delta=0.001))
     res.append(LearningRateScheduler(LinearDecay(args.lr_decay)))
     return res
 
