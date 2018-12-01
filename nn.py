@@ -567,9 +567,9 @@ def setup_callbacks(args, checkpoint):
 
 
 def setup_optimizer(args):
-    if args == "adam":
+    if args.optimizer == "adam":
         return Adam(lr=args.lr)
-    elif args == "rmsprop":
+    elif args.optimizer == "rmsprop":
         return RMSprop(lr=args.lr)
     raise NotImplementedError("optimizer not implemented")
 
