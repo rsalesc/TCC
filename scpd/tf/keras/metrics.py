@@ -29,8 +29,8 @@ def pairwise_distances(embeddings, squared=False):
     """Compute the 2D matrix of distances between all the embeddings.
     Args:
         embeddings: tensor of shape (batch_size, embed_dim)
-        squared: Boolean. If true, output is the pairwise squared euclidean 
-                 distance matrix. 
+        squared: Boolean. If true, output is the pairwise squared euclidean
+                 distance matrix.
                  If false, output is the pairwise euclidean distance matrix.
     Returns:
         pairwise_distances: tensor of shape (batch_size, batch_size)
@@ -136,6 +136,35 @@ def triplet_score(labels, embeddings, thresholds, metric="accuracy"):
     return contrastive_score(flat_labels, flat_dist, thresholds, metric=metric)
 
 
+def categorical_score(y_true, y_pred, metric="accuracy"):
+    d = {}
+    if isinstance(metric, list):
+        for m in metric:
+            d[m] = True
+    else:
+        d[metric] = True
+    res = {}
+
+    labels = tf.argmax(y_true, axis=-1)
+    labeled = tf.argmax(y_pred, axis=-1)
+
+    total = tf.shape(labels)[0]
+
+    if "total" in d:
+        return total
+    if "correct" in d:
+        return tf.reduce_sum(tf.equal(labels, labeled), axis=0)
+
+    if "accuracy" in d:
+        res["accuracy"] = tf.reduce_mean(tf.equal(labels, labeled), axis=0)
+
+    if len(d) != len(res):
+        raise NotImplementedError("some metrics were not implemented")
+    if not isinstance(metric, list):
+        return next(iter(res.values()))
+    return res
+
+
 class BatchScorer:
     def __init__(self):
         self._tp = 0
@@ -234,8 +263,8 @@ class FlatPairBatchScorer(ContrastiveBatchScorer):
 
 class CategoricalBatchScorer:
     def __init__(self):
-        self._correct = np.array(0)
-        self._total = np.array(0)
+        self._correct = 0
+        self._total = 0
 
     def handle(self, y_true, y_pred):
         d = self.score(y_true, y_pred, ["correct", "total"])
@@ -243,22 +272,14 @@ class CategoricalBatchScorer:
         self._total += d["total"]
 
     def score(self, y_true, y_pred, metric):
-        res = {}
-        classes = np.shape(y_pred)[-1]
-        y_hot = np.eye(classes)[np.argmax(y_pred, axis=-1)]
-        y_true = np.array(y_true)
-
-        if "correct" in metric:
-            mask = np.sum(np.equal(y_true, y_hot), axis=-1)
-            mask = np.equal(mask, classes)
-            res["correct"] = np.sum(mask)
-        if "total" in metric:
-            res["total"] = np.array(np.shape(y_hot)[0])
-
-        if len(metric) != len(res):
-            raise NotImplementedError()
-
-        return res
+        graph = tf.Graph()
+        with tf.Session(graph=graph) as sess:
+            with graph.as_default():
+                return sess.run(
+                    categorical_score(
+                        tf.convert_to_tensor(y_true, tf.float32),
+                        tf.convert_to_tensor(y_pred, tf.float32),
+                        metric=metric))
 
     def result(self, metric):
         with np.warnings.catch_warnings():
@@ -303,12 +324,11 @@ class CategoricalOnKerasMetric:
         self.__name__ = "categorical_{}".format(metric)
         self._metric = metric
 
-    def __call__(self, labels, embeddings):
-        scorer = CategoricalBatchScorer()
-        scorer.handle(labels, embeddings)
-        print("getting {}".format(self._metric))
-        print(scorer.result(self._metric))
-        return scorer.result(self._metric)
+    def __call__(self, y_true, y_pred):
+        return categorical_score(
+            tf.convert_to_tensor(y_true, tf.float32),
+            tf.convert_to_tensor(y_pred, tf.float32),
+            metric=self._metric)
 
 
 class OfflineMetric:
