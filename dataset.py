@@ -72,5 +72,21 @@ def preloaded(paths, caide=False):
     return builder.extract()
 
 
+def preloaded_gcj_easiest(paths, caide=False):
+    descriptors = [Descriptor(
+        path, None, (None, None, None), path=path) for path in paths]
+
+    plugins = [gcj_codes_plugin]
+    if caide:
+        plugins.append(cf_caide_plugin(
+            "/usr/include/clang/3.6/include", use_cache=True))
+
+    years = [2014]
+    lang = "cpp"
+
+    builder = CodejamEasiestBuilder(descriptors, years, lang, plugins=plugins)
+    return builder.extract()
+
+
 if __name__ == "__main__":
-    print(len(gcj_easiest()[2]))
+    print(preloaded_gcj_easiest([".cache/gcj.easiest.pkl"]))
