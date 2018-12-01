@@ -16,7 +16,7 @@ from keras.models import load_model
 from keras.utils import Sequence
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras.optimizers import Adam, RMSprop
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, EarlyStopping
 from sklearn.preprocessing import LabelEncoder
 
 from scpd.source import SourceCode
