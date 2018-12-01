@@ -22,7 +22,7 @@ from sklearn.preprocessing import LabelEncoder
 from scpd.source import SourceCode
 from scpd.utils import ObjectPairing, opens, LinearDecay, extract_one_hot
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
-from scpd.tf.keras.lstm import TripletLineLSTM, TripletSoftmaxLSTM
+from scpd.tf.keras.lstm import TripletLineLSTM, SoftmaxLineLSTM
 from scpd.tf.keras.mlp import TripletMLP
 from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
@@ -873,7 +873,7 @@ def run_softmax_lstm(args,
                                 fn=extract_fn))
 
     optimizer = setup_optimizer(args)
-    nn = TripletSoftmaxLSTM(
+    nn = SoftmaxLineLSTM(
         len(ALPHABET) + 1,
         embedding_size=args.char_embedding_size,
         output_size=args.embedding_size,
@@ -885,6 +885,7 @@ def run_softmax_lstm(args,
         dropout_inter=args.dropout_inter,
         margin=args.margin,
         optimizer=optimizer,
+        classes=args.classes,
         metric=["accuracy"])
 
     build_scpd_model(nn)
