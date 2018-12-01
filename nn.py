@@ -15,7 +15,7 @@ from keras import backend as K
 from keras.models import load_model
 from keras.utils import Sequence
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras.optimizers import Adam
+from keras.optimizers import Adam, RMSprop
 from keras.callbacks import TensorBoard
 from sklearn.preprocessing import LabelEncoder
 
@@ -403,6 +403,7 @@ def argparsing():
     parser.add_argument("--eval-every", type=int, default=None)
     parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--lr-decay", default=0, type=float)
+    parser.add_argument("--optimizer", default="adam", choices=["adam", "rmsprop"])
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
@@ -559,6 +560,14 @@ def setup_callbacks(args, checkpoint):
     return res
 
 
+def setup_optimizer(args):
+    if args == "adam":
+        return Adam(lr=args.lr)
+    else if args == "rmsprop":
+        return RMSprop(lr=args.lr)
+    raise NotImplementedError("optimizer not implemented")
+
+
 def build_scpd_model(nn, path=None):
     if path is None:
         nn.build()
@@ -608,7 +617,7 @@ def run_triplet_mlp(args,
         fn=lambda x, _: x[0],
         fn_author=lambda x: x[1])
 
-    optimizer = Adam(lr=args.lr)
+    optimizer = setup_optimizer(args)
     nn = TripletMLP(
         input_size=input_size,
         hidden_size=args.hidden_size,
@@ -676,7 +685,7 @@ def run_triplet_lstm(args,
         input_size=input_size,
         fn=extract_fn)
 
-    optimizer = Adam(lr=args.lr)
+    optimizer = setup_optimizer(args)
     nn = TripletLineLSTM(
         len(ALPHABET) + 1,
         embedding_size=args.char_embedding_size,
@@ -756,7 +765,7 @@ def run_triplet_cnn(args,
         input_size=input_size,
         fn=extract_fn)
 
-    optimizer = Adam(lr=args.lr)
+    optimizer = setup_optimizer(args)
     nn = TripletCharCNN(
         args.input_crop,
         len(ALPHABET) + 1,
