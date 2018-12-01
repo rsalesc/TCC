@@ -401,7 +401,7 @@ def load_embedding_dataset(args):
 
 
 def load_dataset(args):
-    if args.dataset_func:
+    if hasattr(args, "dataset_func") and args.dataset_func:
         return args.dataset_func(args)
     random.seed(MAGICAL_SEED)
 
