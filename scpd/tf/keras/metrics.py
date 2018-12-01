@@ -153,9 +153,9 @@ def categorical_score(y_true, y_pred, metric="accuracy"):
     total = tf.shape(labels)[0]
 
     if "total" in d:
-        return total
+        res["total"] = total
     if "correct" in d:
-        return tf.reduce_sum(corr, axis=0)
+        res["correct"] = tf.reduce_sum(corr, axis=0)
 
     if "accuracy" in d:
         res["accuracy"] = tf.reduce_mean(corr, axis=0)
