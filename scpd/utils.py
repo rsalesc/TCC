@@ -86,7 +86,7 @@ def extract_one_hot(list_sources, classes=None):
         for source in sources:
             authors[source.author()] = 1
 
-    author_list = authors.keys()
+    author_list = list(authors.keys())
     author_list.sort()
     labeler.fit(author_list)
 
