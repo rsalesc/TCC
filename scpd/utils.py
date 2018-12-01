@@ -60,6 +60,10 @@ def split_label(df):
     return feature_matrix, label_array
 
 
+def linear_decay(lr, decay, iterations):
+    return lr * (1.0 / (1.0 + decay * iterations))
+
+
 def list_batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
@@ -72,6 +76,14 @@ def isiterable(iterable):
         return True
     except TypeError:
         return False
+
+
+class LinearDecay:
+    def __init__(self, decay):
+        self._decay = decay
+
+    def __call__(self, epoch, lr):
+        return linear_decay(lr, self._decay, epoch)
 
 
 class ObjectPairing():

@@ -14,13 +14,13 @@ from bisect import bisect
 from keras import backend as K
 from keras.models import load_model
 from keras.utils import Sequence
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
 from sklearn.preprocessing import LabelEncoder
 
 from scpd.source import SourceCode
-from scpd.utils import ObjectPairing, opens
+from scpd.utils import ObjectPairing, opens, LinearDecay
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.lstm import TripletLineLSTM
 from scpd.tf.keras.mlp import TripletMLP
@@ -402,6 +402,7 @@ def argparsing():
     parser.add_argument("--period", type=int, default=0)
     parser.add_argument("--eval-every", type=int, default=None)
     parser.add_argument("--lr", default=0.05, type=float)
+    parser.add_argument("--lr-decay", default=0, type=float)
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
     parser.add_argument("--tensorboard-dir", default="/opt/tensorboard")
@@ -553,6 +554,8 @@ def setup_callbacks(args, checkpoint):
                 mode="max"))
         else:
             res.append(ModelCheckpoint(checkpoint, period=args.period))
+
+    res.append(LearningRateScheduler(LinearDecay(args.lr_decay)))
     return res
 
 
