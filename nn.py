@@ -174,7 +174,7 @@ class CodeSequence(Sequence):
                                self._batch_size]
         labels = LabelEncoder().fit_transform(
             list(map(lambda x: x.author(), batch)))
-        return self.ex_.extract_batch_x(batch), np.array(labels)
+        return self._ex.extract_batch_x(batch), np.array(labels)
 
 
 class CategoricalCodeSequence(Sequence):
