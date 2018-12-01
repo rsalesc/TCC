@@ -403,6 +403,7 @@ def argparsing():
     parser.add_argument("--eval-every", type=int, default=None)
     parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--lr-decay", default=0, type=float)
+    parser.add_argument("--patience", default=10, type=int)
     parser.add_argument("--optimizer", default="adam", choices=["adam", "rmsprop"])
     parser.add_argument("--save-to", default=".cache/keras")
     parser.add_argument("--no-checkpoint", action="store_true", default=False)
@@ -556,6 +557,11 @@ def setup_callbacks(args, checkpoint):
         else:
             res.append(ModelCheckpoint(checkpoint, period=args.period))
 
+    res.append(EarlyStopping(
+        patience=args.patience,
+        monitor="best_metric",
+        mode="max",
+        min_delta=0.005))
     res.append(LearningRateScheduler(LinearDecay(args.lr_decay)))
     return res
 
