@@ -885,7 +885,6 @@ def run_softmax_lstm(args,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
         dropout_inter=args.dropout_inter,
-        margin=args.margin,
         optimizer=optimizer,
         classes=args.classes,
         metric=["accuracy"])
