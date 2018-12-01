@@ -532,6 +532,8 @@ def argparsing():
     lstm_softmax.add_argument("--batch-size", type=int, default=32)
     lstm_softmax.add_argument("--hidden-size", type=int, default=128)
     lstm_softmax.add_argument("--classes", type=int, required=True)
+    lstm_softmax.set_defaults(func=run_softmax_lstm)
+    lstm_triplet.set_defaults(emb_func=None)
     lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
 
     return parser.parse_args()
