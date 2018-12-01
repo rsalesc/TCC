@@ -66,7 +66,7 @@ class TripletLineLSTM(BaseModel):
                  dropout_fc=0.0,
                  dropout_inter=0.0,
                  margin=0.2,
-                 metric="accuracy",
+                 metric=["accuracy"],
                  metric_margin=None,
                  optimizer=None,
                  *args,

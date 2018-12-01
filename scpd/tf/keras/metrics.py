@@ -234,8 +234,8 @@ class FlatPairBatchScorer(ContrastiveBatchScorer):
 
 class CategoricalBatchScorer:
     def __init__(self):
-        self._correct = 0
-        self._total = 0
+        self._correct = np.array(0)
+        self._total = np.array(0)
 
     def handle(self, y_true, y_pred):
         d = self.score(y_true, y_pred, ["correct", "total"])
@@ -253,7 +253,7 @@ class CategoricalBatchScorer:
             mask = np.equal(mask, classes)
             res["correct"] = np.sum(mask)
         if "total" in metric:
-            res["total"] = np.shape(y_hot)[0]
+            res["total"] = np.array(np.shape(y_hot)[0])
 
         if len(metric) != len(res):
             raise NotImplementedError()
@@ -306,6 +306,8 @@ class CategoricalOnKerasMetric:
     def __call__(self, labels, embeddings):
         scorer = CategoricalBatchScorer()
         scorer.handle(labels, embeddings)
+        print("getting {}".format(self._metric))
+        print(scorer.result(self._metric))
         return scorer.result(self._metric)
 
 
