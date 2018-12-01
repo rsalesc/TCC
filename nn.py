@@ -530,7 +530,7 @@ def argparsing():
     lstm_triplet.set_defaults(emb_func=get_embedding_triplet_lstm)
 
     lstm_softmax.add_argument("--batch-size", type=int, default=32)
-    lstm_softmax.add_argument("--hidden-size", type=int, default=128)
+    lstm_softmax.add_argument("--hidden-size", nargs="+", type=int, default=[128])
     lstm_softmax.add_argument("--classes", type=int, required=True)
     lstm_softmax.set_defaults(func=run_softmax_lstm)
     lstm_triplet.set_defaults(emb_func=None)

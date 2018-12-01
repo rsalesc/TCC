@@ -161,19 +161,21 @@ class TripletLineLSTM(BaseModel):
 
 
 class SoftmaxLineLSTM(TripletLineLSTM):
-    def __init__(self, *args, classes=None, hidden_size=128, **kwargs):
+    def __init__(self, *args, classes=None, hidden_size=[128], **kwargs):
         assert classes is not None
         self._classes = classes
-        self._hidden_size = hidden_size
+        self._hidden_size = list(hidden_size)
         super().__init__(*args, **kwargs)
         self._metric = [CategoricalOnKerasMetric(metric=x) for x
                         in self._metric_names]
 
     def build(self):
         x = Input(shape=self.input_shape(), dtype="int32")
-        embeddings = self.SiamesisNetwork()(x)
-        a = Dense(self._hidden_size, activation="softmax")(embeddings)
+        a = self.SiamesisNetwork()(x)
+        for size in self._hidden_size:
+            a = Dense(size, activation="linear")(a)
 
+        a = Activation("softmax")(a)
         self.model = Model(x, a)
 
     def compile(self):
