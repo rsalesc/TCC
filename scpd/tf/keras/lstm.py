@@ -175,7 +175,7 @@ class SoftmaxLineLSTM(TripletLineLSTM):
         for size in self._hidden_size:
             a = Dense(size, activation="linear")(a)
 
-        a = Activation("softmax")(a)
+        a = Dense(self._classes, activation="softmax")(a)
         self.model = Model(x, a)
 
     def compile(self):
