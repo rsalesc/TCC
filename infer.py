@@ -141,7 +141,7 @@ def run_roc_experiment(args, infer_batches):
     frr = scorer.result("frr")
 
     path = "{}.roc.json".format(args.save_to)
-    with opens(path) as f:
+    with opens(path, "w") as f:
         json.dump({
             "name": args.roc_name,
             "frr": frr,
