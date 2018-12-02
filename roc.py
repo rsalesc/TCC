@@ -20,7 +20,7 @@ def argparsing():
 
 
 def load_curve(path):
-    with open(path) as f:
+    with open(path, "rb") as f:
         return pickle.load(f)
 
 
