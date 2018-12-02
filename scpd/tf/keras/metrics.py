@@ -265,6 +265,9 @@ class BatchScorer:
                 far = self.result("far")
                 frr = self.result("frr")
                 argmin = np.argmin(np.abs(far - frr), axis=-1)
+                print(argmin)
+                print(far[..., argmin])
+                print(frr[..., argmin])
                 return np.array((far + frr) / 2)[..., argmin]
 
         raise NotImplementedError()
