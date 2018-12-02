@@ -602,15 +602,17 @@ def setup_callbacks(args, checkpoint):
                 checkpoint,
                 save_best_only=True,
                 monitor="best_metric",
-                mode="max"))
+                mode=args.metric_mode))
         else:
             res.append(ModelCheckpoint(checkpoint, period=args.period))
 
     res.append(EarlyStopping(
         patience=args.patience,
         monitor="best_metric",
-        mode="max",
+        mode=args.metric_mode,
         min_delta=0.001))
+
+    print("Early stopping on metric mode: {}".format(args.metric_mode))
     res.append(LearningRateScheduler(LinearDecay(args.lr_decay)))
     return res
 
