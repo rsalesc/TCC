@@ -10,6 +10,7 @@ from scpd.utils import extract_labels, opens
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
 from sklearn.manifold import TSNE
+from sklearn.neighbors import KNeighborsClassifier
 
 import tensorflow as tf
 import keras
@@ -60,6 +61,8 @@ def argparsing():
     parser.add_argument("--dataset", choices=["cf", "gcj"], default="cf")
     parser.add_argument("--roc-name", default="classifier")
 
+    parser.add_argument("--neighbors", default=6)
+
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
 
@@ -79,7 +82,48 @@ def argparsing():
                       nn.get_triplet_lstm_nn(x, get_dummy_optimizer()))
     lstm.set_defaults(infer_fn=lstm_embedding_infer_batches)
 
+    # Code KNN+LSTM
+    lstm = subparsers.add_parser("knn_lstm")
+    lstm.set_defaults(get_nn=lambda x:
+                      nn.get_triplet_lstm_nn(x, get_dummy_optimizer()))
+    lstm.set_defaults(infer_fn=lstm_knn_infer)
+
     return parser.parse_args()
+
+
+def lstm_knn_infer(args):
+    xargs = load_xargs(args.model_path)
+    net = load_nn(args)
+    training_sources, test_sources, _ = load_knn_dataset(args)
+
+    input_size = (xargs.max_lines, xargs.max_chars)
+    extract_fn = nn.extract_hierarchical_features
+
+    training_labels, test_labels = extract_labels([
+        training_sources, test_sources])
+
+    base = [(training_sources, training_labels),
+            (test_sources, test_labels)]
+
+    res = []
+    for sources, labels, in base:
+        sequence = (
+            nn.CategoricalCodeSequence(sources,
+                                       labels,
+                                       input_size=input_size,
+                                       batch_size=args.batch_size,
+                                       fn=extract_fn))
+
+        labels = []
+        y_pred = []
+        for i in range(len(sequence)):
+            x, y_true = sequence[i]
+            y_pred.extend(net.model.predict_on_batch(x))
+            labels.extend(y_true)
+
+        res.append((np.array(y_pred), np.array(labels)))
+
+    return res
 
 
 def lstm_embedding_infer_batches(args):
@@ -104,6 +148,12 @@ def lstm_embedding_infer_batches(args):
         y_pred.append(net.model.predict_on_batch(x))
 
     return sequence, y_pred
+
+
+def load_knn_dataset(args):
+    random.seed(constants.MAGICAL_SEED)
+    return dataset.preloaded_gcj_easiest([args.test_file],
+                                         caide=args.caide)
 
 
 def load_dataset(args):
@@ -201,6 +251,21 @@ def run_embedding_experiment(args, infer_batches):
     plt.savefig(path, bbox_inches='tight', dpi=300)
 
 
+def run_knn_experiment(args, infer_sets):
+    training_set, test_set = infer_sets
+
+    training_embeddings, training_labels = training_set
+    nei = KNeighborsClassifier(n_neighbors=args.neighbors)
+    nei.fit(training_embeddings, training_labels)
+
+    test_embeddings, test_labels = test_set
+
+    test_pred = nei.predict(test_embeddings)
+
+    acc = np.mean(np.equal(test_pred, test_labels))
+    print("Accuracy: {}".format(acc))
+
+
 def run_experiment(args, infer_batches):
     if args.experiment == "roc":
         run_roc_experiment(args, infer_batches)
@@ -208,6 +273,9 @@ def run_experiment(args, infer_batches):
         run_embedding_experiment(args, infer_batches)
     else:
         raise NotImplementedError()
+
+
+def run_knn_experiment(args, infer_batches):
 
 
 def main(args):
