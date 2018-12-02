@@ -61,7 +61,7 @@ def argparsing():
     parser.add_argument("--dataset", choices=["cf", "gcj"], default="cf")
     parser.add_argument("--roc-name", default="classifier")
 
-    parser.add_argument("--neighbors", default=6)
+    parser.add_argument("--neighbors", default=6, type=int)
 
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
