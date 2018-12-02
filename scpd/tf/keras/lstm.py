@@ -158,6 +158,9 @@ class TripletLineLSTM(BaseModel):
 
         return Model(input, x)
 
+    def get_pretrained_input(self):
+        return self.model.get_layer("model_1").input
+
     def get_pretrained_output(self):
         return self.model.get_layer("model_1").get_layer("descriptor").output
 
@@ -183,7 +186,7 @@ class SoftmaxLineLSTM(TripletLineLSTM):
         a = None
 
         if pretrained is not None:
-            x = pretrained.model.input
+            x = pretrained.get_pretrained_input()
             a = pretrained.get_pretrained_output()
         else:
             x = Input(shape=self.input_shape(), dtype="int32")
