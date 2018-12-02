@@ -913,11 +913,10 @@ def run_softmax_lstm(args,
 def main(args):
     os.makedirs(args.save_to, exist_ok=True)
     checkpoint = os.path.join(args.save_to,
-                              "{model}.{loss}.{name}.h5").format(
+                              "{model}.{name}.h5").format(
                                   model=args.model,
-                                  loss=(args.loss or "unknown"),
                                   name=args.name)
-    to_load = checkpoint.format(epoch=args.epoch)
+    to_load = checkpoint
     callbacks = setup_callbacks(args, checkpoint)
     training_sources, validation_sources = load_dataset(args)
 
