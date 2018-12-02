@@ -3,11 +3,13 @@ import pickle
 import numpy as np
 import random
 
-from keras.optimizers import Adam
 from keras.utils import Sequence
 
 from scpd.utils import extract_labels
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
+
+import tensorflow as tf
+import keras
 
 import constants
 import nn
@@ -108,7 +110,12 @@ def load_nn(args):
     model_h5 = "{}.h5".format(args.model_path)
 
     net = args.get_nn(xargs)
-    nn.build_scpd_model(net, path=model_h5)
+    nn.build_scpd_model(net)
+
+    path_tf = "{}.tf".format(model_h5)
+    saver = tf.train.Saver()
+    sess = keras.backend.get_session()
+    saver.restore(sess, path_tf)
     print(net.model.summary())
 
     return net
