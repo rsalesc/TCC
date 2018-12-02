@@ -181,6 +181,7 @@ class SoftmaxLineLSTM(TripletLineLSTM):
         self._classes = classes
         self._hidden_size = list(hidden_size)
         self._pretrained = pretrained
+        self._pretrained_freeze = pretrained_freeze
         super().__init__(*args, **kwargs)
         self._metric = [CategoricalOnKerasMetric(metric=x) for x
                         in self._metric_names]
