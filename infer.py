@@ -9,6 +9,8 @@ from keras.utils import Sequence
 from scpd.utils import extract_labels, opens
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
+from sklearn.manifold import TSNE
+
 import tensorflow as tf
 import keras
 
@@ -18,6 +20,9 @@ import constants
 import nn
 import dataset
 from nn import *
+
+from itertools import cycle
+CYCOL = cycle('bgrcmkyp')
 
 
 class SequenceWrapper(Sequence):
@@ -44,9 +49,10 @@ def argparsing():
     parser.add_argument("--test-file", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--experiment", choices=["roc"], default="roc")
-    parser.add_argument("--dataset", choices=["cf"], default="cf")
+    parser.add_argument("--experiment", choices=["roc", "embedding"],
+                        default="roc")
 
+    parser.add_argument("--dataset", choices=["cf", "gcj"], default="cf")
     parser.add_argument("--roc-name", default="classifier")
 
     subparsers = parser.add_subparsers(title="models", dest="model")
@@ -99,6 +105,9 @@ def load_dataset(args):
     random.seed(constants.MAGICAL_SEED)
     if args.dataset == "cf":
         return dataset.preloaded([args.test_file], caide=args.caide)[0]
+    if args.dataset == "gcj":
+        return dataset.preloaded_gcj_easiest(
+            [args.test_file], caide=args.caide)[0]
 
     raise NotImplementedError()
 
@@ -150,9 +159,45 @@ def run_roc_experiment(args, infer_batches):
         }, f)
 
 
+def run_embedding_experiment(args, infer_batches):
+    assert args.save_to is not None
+
+    sequence, a = infer_batches
+
+    every = []
+    by_label = {}
+
+    for i in range(len(sequence)):
+        _, y_true = sequence[i]
+        y_pred = a[i]
+
+        for j in len(y_true):
+            if y_true[j] not in by_label:
+                by_label[y_true[j]] = []
+            by_label[y_true[j]].append(len(every))
+            every.append(y_pred[j])
+
+    embeddings = TSNE(n_components=2).fit_transform(every)
+
+    plt.figure()
+    for label, indices in by_label.items():
+        c = next(CYCOL)
+        x = []
+        y = []
+        for index in indices:
+            x.append(embeddings[index][0])
+            y.append(embeddings[index][1])
+
+        plt.scatter(x, y, c=c)
+
+    plt.savefig(args.save_to, bbox_inches='tight', dpi=300)
+
+
 def run_experiment(args, infer_batches):
     if args.experiment == "roc":
         run_roc_experiment(args, infer_batches)
+    elif args.experiment == "embedding":
+        run_embedding_experiment(args, infer_batches)
     else:
         raise NotImplementedError()
 

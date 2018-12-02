@@ -60,6 +60,20 @@ def gcj_easiest():
     return builder.extract()
 
 
+def gcj_tiny():
+    descriptors = [
+        CodejamDescriptor("tiny", 7, (12,),
+                          path=".cache/gcj.tiny.pkl")
+    ]
+
+    plugins = [gcj_codes_plugin]
+    years = [2014]
+    lang = "cpp"
+
+    builder = CodejamEasiestBuilder(descriptors, years, lang, plugins=plugins)
+    return builder.extract()
+
+
 def preloaded(paths, caide=False):
     descriptors = [Descriptor(path, None, None, path=path) for path in paths]
 
@@ -89,4 +103,4 @@ def preloaded_gcj_easiest(paths, caide=False):
 
 
 if __name__ == "__main__":
-    print(preloaded_gcj_easiest([".cache/gcj.easiest.pkl"]))
+    gcj_tiny()
