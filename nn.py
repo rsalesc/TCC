@@ -602,7 +602,9 @@ def setup_callbacks(args, checkpoint):
                 checkpoint,
                 save_best_only=True,
                 monitor="best_metric",
+                verbose=1,
                 mode=args.metric_mode))
+            print("Saving only BEST MODEL")
         else:
             res.append(ModelCheckpoint(checkpoint, period=args.period))
 

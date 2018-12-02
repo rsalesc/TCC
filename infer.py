@@ -130,8 +130,8 @@ def run_roc_experiment(args, infer_batches):
 def run_experiment(args, infer_batches):
     if args.experiment == "roc":
         run_roc_experiment(args, infer_batches)
-
-    raise NotImplementedError()
+    else:
+        raise NotImplementedError()
 
 
 def main(args):
