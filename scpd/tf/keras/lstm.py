@@ -6,7 +6,7 @@ from keras.layers import TimeDistributed, Bidirectional
 from keras.layers import Dropout, BatchNormalization, Activation
 from keras.layers import RNN, LSTMCell
 
-from .common import (l2_normalization, triplet_loss)
+from .common import (l2_normalization, triplet_loss, categorical_loss)
 from .base import BaseModel
 from .metrics import TripletOnKerasMetric, CategoricalOnKerasMetric
 
@@ -177,12 +177,12 @@ class SoftmaxLineLSTM(TripletLineLSTM):
             a = Dense(size, activation="relu")(a)
             a = Dropout(self._dropout_fc)(a)
 
-        a = Dense(self._classes, activation="softmax")(a)
+        a = Dense(self._classes, activation=None)(a)
         self.model = Model(x, a)
 
     def compile(self):
         self.model.compile(
-            loss="categorical_crossentropy",
+            loss=categorical_loss,
             optimizer=self._optimizer,
             metrics=self._metric)
 

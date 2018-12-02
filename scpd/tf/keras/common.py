@@ -23,6 +23,10 @@ def triplet_loss(margin):
     return triplet_loss
 
 
+def categorical_loss(labels, logits):
+    return tf.nn.softmax_cross_entropy_with_logits_v2(labels, logits)
+
+
 def l2_normalization(x):
     return tf.nn.l2_normalize(x, axis=1)
 
