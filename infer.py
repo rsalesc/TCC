@@ -62,7 +62,7 @@ def argparsing():
 
 
 def lstm_embedding_infer_batches(args):
-    xargs = load_xargs(args)
+    xargs = load_xargs(args.model_path)
     net = load_nn(args)
     sources = load_dataset(args)
 
