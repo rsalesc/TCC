@@ -587,7 +587,7 @@ def setup_callbacks(args, checkpoint):
     if not args.no_checkpoint:
         basename = os.path.splitext(checkpoint)[0]
         args_fn = "{}.{}".format(basename, "args.pkl")
-        with open(args_fn, "wb") as f:
+        with opens(args_fn, "wb") as f:
             pickle.dump(args, f)
         if not args.period:
             res.append(ModelCheckpoint(
