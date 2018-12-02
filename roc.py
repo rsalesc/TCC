@@ -16,6 +16,8 @@ def argparsing():
     parser.add_argument("--curves", nargs="+")
     parser.add_argument("--save-to", required=True)
 
+    return parser.parse_args()
+
 
 def load_curve(path):
     with open(path) as f:
