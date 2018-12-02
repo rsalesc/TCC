@@ -747,7 +747,7 @@ def run_triplet_lstm(args,
         input_size=input_size,
         fn=extract_fn)
 
-    validation_labels = extract_labels(validation_sources)
+    validation_labels = extract_labels([validation_sources])[0]
     validation_sequence = (
         CategoricalCodeSequence(validation_sources,
                                 validation_labels,
