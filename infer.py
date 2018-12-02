@@ -2,14 +2,17 @@ import argparse
 import pickle
 import numpy as np
 import random
+import json
 
 from keras.utils import Sequence
 
-from scpd.utils import extract_labels
+from scpd.utils import extract_labels, opens
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
 import tensorflow as tf
 import keras
+
+import matplotlib.pyplot as plt
 
 import constants
 import nn
@@ -43,6 +46,8 @@ def argparsing():
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--experiment", choices=["roc"], default="roc")
     parser.add_argument("--dataset", choices=["cf"], default="cf")
+
+    parser.add_argument("--roc-name", default="classifier")
 
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
@@ -119,6 +124,8 @@ def get_roc_steps(args):
 
 
 def run_roc_experiment(args, infer_batches):
+    assert args.save_to is not None
+
     scorer = CompletePairContrastiveScorer(get_roc_steps(args))
     sequence, a = infer_batches
 
@@ -128,7 +135,19 @@ def run_roc_experiment(args, infer_batches):
 
         scorer.handle(y_true, y_pred)
 
-    print(scorer.result("eer"))
+    eer = scorer.result("eer")
+    print("EER : {}".format(eer))
+    far = scorer.result("far")
+    frr = scorer.result("frr")
+
+    path = "{}.roc.json".format(args.save_to)
+    with opens(path) as f:
+        json.dump({
+            "name": args.roc_name,
+            "frr": frr,
+            "far": far,
+            "eer": eer
+        }, f)
 
 
 def run_experiment(args, infer_batches):
