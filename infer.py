@@ -10,6 +10,7 @@ from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
 import nn
 import dataset
+from nn import *
 
 
 class SequenceWrapper(Sequence):
