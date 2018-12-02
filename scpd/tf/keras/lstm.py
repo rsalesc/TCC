@@ -159,7 +159,7 @@ class TripletLineLSTM(BaseModel):
         return Model(input, x)
 
     def get_pretrained_input(self):
-        return self.model.get_layer("model_1").input
+        return self.model.get_layer("model_1").get_input_at(1)
 
     def get_pretrained_output(self):
         return self.model.get_layer("model_1").get_layer("descriptor").output
