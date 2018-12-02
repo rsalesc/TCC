@@ -148,8 +148,8 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     if "cn" in d:
         res["cn"] = tf.reduce_sum(1 - labels)
     if "eer" in d:
-        far = (tf.reduce_sum(pred, axis=0) - tp) / total
-        frr = (tf.reduce_sum(1 - pred, axis=0) - tn) / total
+        far = (tf.reduce_sum(pred, axis=0) - tp) / tf.reduce_sum(1 - labels)
+        frr = (tf.reduce_sum(1 - pred, axis=0) - tn) / tf.reduce_sum(labels)
         argmin = tf.argmin(tf.abs(far - frr), axis=-1)
         res["eer"] = tf.gather((far + frr) / 2, argmin, axis=-1)
 
@@ -250,9 +250,9 @@ class BatchScorer:
             if metric == "specificity":
                 return self._tn / self._cn
             if metric == "far":
-                return (self._pcp - self._tp) / self._total
+                return (self._pcp - self._tp) / self._cn
             if metric == "frr":
-                return (self._pcn - self._tn) / self._total
+                return (self._pcn - self._tn) / self._cp
             if metric == "f1":
                 precision = self.result("precision")
                 recall = self.result("recall")
@@ -265,13 +265,6 @@ class BatchScorer:
                 far = self.result("far")
                 frr = self.result("frr")
                 argmin = np.argmin(np.abs(far - frr), axis=-1)
-                print(argmin)
-                print()
-                print(self._total)
-                print()
-                print(self._tp)
-                print()
-                print(self._tn)
                 return np.array((far + frr) / 2)[..., argmin]
 
         raise NotImplementedError()

@@ -765,8 +765,7 @@ def run_triplet_lstm(args,
     val_metric = CompletePairValidationMetric(
         np.linspace(0.0, 2.0, args.threshold_granularity),
         id="complete",
-        metric=["eer", "far", "frr", 
-        "accuracy", "precision", "recall", "f1"])
+        metric=["eer"])
     om = OfflineMetrics(
         on_epoch=[val_metric],
         validation_data=validation_sequence,
