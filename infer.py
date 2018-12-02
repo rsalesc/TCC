@@ -38,7 +38,6 @@ def argparsing():
     parser.add_argument("--save-to", default=None)
     parser.add_argument("--threshold-granularity", type=int, default=256)
     parser.add_argument("--model-path", required=True)
-    parser.add_argument("--training-file", required=True)
     parser.add_argument("--test-file", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
@@ -94,8 +93,7 @@ def lstm_embedding_infer_batches(args):
 def load_dataset(args):
     random.seed(constants.MAGICAL_SEED)
     if args.dataset == "cf":
-        return dataset.preloaded([args.training_file,
-                                  args.test_file], caide=args.caide)[1]
+        return dataset.preloaded([args.test_file], caide=args.caide)[0]
 
     raise NotImplementedError()
 
