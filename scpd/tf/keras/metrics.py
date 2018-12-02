@@ -145,7 +145,6 @@ def categorical_score(y_true, y_pred, metric="accuracy"):
         d[metric] = True
     res = {}
 
-    y_pred = tf.nn.softmax(y_pred, axis=-1)
     labels = tf.argmax(y_true, axis=-1)
     labeled = tf.argmax(y_pred, axis=-1)
 
