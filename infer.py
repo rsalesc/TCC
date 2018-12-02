@@ -109,7 +109,6 @@ def load_nn(args):
 
     net = args.get_nn(xargs)
     nn.build_scpd_model(net, path=model_h5)
-    net.compile()
     print(net.model.summary())
 
     return net

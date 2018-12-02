@@ -9,12 +9,13 @@ import os
 import math
 import pickle
 import time
+import keras
 
 from bisect import bisect
 from keras import backend as K
 from keras.models import load_model
 from keras.utils import Sequence
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler
+from keras.callbacks import LearningRateScheduler
 from keras.optimizers import Adam, RMSprop
 from keras.callbacks import TensorBoard, EarlyStopping
 from sklearn.preprocessing import LabelEncoder
@@ -29,7 +30,7 @@ from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    CompletePairValidationMetric,
                                    CategoricalValidationMetric,
                                    FlatPairValidationMetric)
-from scpd.tf.keras.callbacks import OfflineMetrics
+from scpd.tf.keras.callbacks import OfflineMetrics, SaverCheckpoint
 from basics import (TRAINING_PKL, TEST_PKL,
                     apply_preprocessing_for_triplet_mlp, RowPairing)
 import dataset
@@ -598,7 +599,7 @@ def setup_callbacks(args, checkpoint):
         with opens(args_fn, "wb") as f:
             pickle.dump(args, f)
         if not args.period or args.period == 0:
-            res.append(ModelCheckpoint(
+            res.append(SaverCheckpoint(
                 checkpoint,
                 save_best_only=True,
                 monitor="best_metric",
@@ -606,7 +607,7 @@ def setup_callbacks(args, checkpoint):
                 mode=args.metric_mode))
             print("Saving only BEST MODEL")
         else:
-            res.append(ModelCheckpoint(checkpoint, period=args.period))
+            res.append(SaverCheckpoint(checkpoint, period=args.period))
 
     res.append(EarlyStopping(
         patience=args.patience,
@@ -632,6 +633,10 @@ def build_scpd_model(nn, path=None):
         nn.build()
     else:
         nn.model = load_model(path, nn.loader_objects(), compile=False)
+        path_tf = "{}.tf".format(path)
+        saver = tf.train.Saver()
+        sess = keras.backend.get_session()
+        saver.restore(sess, path_tf)
 
 
 def get_embedding_triplet_mlp(args):
