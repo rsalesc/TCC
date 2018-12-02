@@ -905,7 +905,7 @@ def run_softmax_lstm(args,
         training_sequence,
         callbacks=[om, tb] + callbacks,
         epochs=args.max_epochs,
-        steps_per_epoch=len(training_sequence),
+        shuffle=True,
         initial_epoch=args.epoch)
 
 
