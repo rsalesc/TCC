@@ -309,11 +309,10 @@ class CategoricalBatchScorer(BatchScorer):
 
 
 class CompletePairContrastiveScorer(TripletBatchScorer):
-    def __init__(self, margin):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._labels = []
         self._embeddings = []
-        self._margin = margin
 
     def handle_finish(self, d):
         self._tp += d["tp"]
