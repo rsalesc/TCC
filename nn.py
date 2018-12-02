@@ -533,6 +533,8 @@ def argparsing():
     lstm_softmax.add_argument("--hidden-size", nargs="*", type=int, default=[])
     lstm_softmax.add_argument("--classes", type=int, required=True)
     lstm_softmax.add_argument("--pretrained", type=str, default=None)
+    lstm_softmax.add_argument("--pretrained-freeze",
+                              type=bool, default=False, action="store_true")
     lstm_softmax.set_defaults(func=run_softmax_lstm)
     lstm_softmax.set_defaults(emb_func=None)
     lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)

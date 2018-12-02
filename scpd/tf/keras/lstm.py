@@ -164,13 +164,19 @@ class TripletLineLSTM(BaseModel):
     def get_pretrained_output(self):
         return self.model.get_layer("model_1").get_output_at(1)
 
+    def freeze_pretrained(self):
+        model = self.model.get_layer("model_1")
+        for layer in model.layers:
+            layer.trainable = False
+
     def embeddings_to_watch(self):
         return ["output"]
 
 
 class SoftmaxLineLSTM(TripletLineLSTM):
     def __init__(self, *args, classes=None,
-                 hidden_size=[128], pretrained=None, **kwargs):
+                 hidden_size=[128], pretrained=None,
+                 pretrained_freeze=False, **kwargs):
         assert classes is not None
         self._classes = classes
         self._hidden_size = list(hidden_size)
@@ -181,11 +187,14 @@ class SoftmaxLineLSTM(TripletLineLSTM):
 
     def build(self):
         pretrained = self._pretrained
+        freeze = self._pretrained_freeze
 
         x = None
         a = None
 
         if pretrained is not None:
+            if freeze:
+                pretrained.freeze_pretrained()
             x = pretrained.get_pretrained_input()
             a = pretrained.get_pretrained_output()
         else:
