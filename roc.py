@@ -27,7 +27,7 @@ def load_curve(path):
 def draw_curve(curve):
     auc = sklearn.metrics.auc(np.array(curve["far"]),
                               1.0 - np.array(curve["frr"]))
-    label = "{} (auc = {1:0.2f}, eer = {1:0.2f})".format(
+    label = "{} (auc = {:0.2f}, eer = {:0.2f})".format(
         curve["name"], curve["eer"], auc)
     plt.plot(np.array(curve["far"]),
              1.0 - np.array(curve["frr"]), lw=LW, label=label)
