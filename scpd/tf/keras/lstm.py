@@ -174,7 +174,8 @@ class SoftmaxLineLSTM(TripletLineLSTM):
         x = Input(shape=self.input_shape(), dtype="int32")
         a = self.SiamesisNetwork(embedding=False)(x)
         for size in self._hidden_size:
-            a = Dense(size, activation=None)(a)
+            a = Dense(size, activation="relu")(a)
+            a = Dropout(self._dropout_fc)(a)
 
         a = Dense(self._classes, activation="softmax")(a)
         self.model = Model(x, a)
