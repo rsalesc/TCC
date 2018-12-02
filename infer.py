@@ -22,7 +22,7 @@ import dataset
 from nn import *
 
 from itertools import cycle
-CYCOL = cycle('bgrcmkyp')
+CYCOL = cycle('abcdefghijklmnopqrstuv')
 
 
 class SequenceWrapper(Sequence):
