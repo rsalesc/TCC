@@ -2,7 +2,7 @@ import argparse
 import json
 import pickle
 
-import sklearn
+import sklearn.metrics
 
 import numpy as np
 import matplotlib.pyplot as plt
