@@ -612,7 +612,7 @@ def setup_callbacks(args, checkpoint):
         patience=args.patience,
         monitor="best_metric",
         mode=args.metric_mode,
-        min_delta=0.001))
+        min_delta=0.00005))
 
     print("Early stopping on metric mode: {}".format(args.metric_mode))
     res.append(LearningRateScheduler(LinearDecay(args.lr_decay)))
