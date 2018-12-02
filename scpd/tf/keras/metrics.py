@@ -355,7 +355,7 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
         self._total += d["total"]
 
     def score_cross(self, labels, embeddings, i, metric):
-        dist_fn = pairwise_distances
+        dist_fn = pairwise_nm_distances
         if labels.shape[0] != self._labels[i].shape[0]:
             dist_fn = pairwise_nm_distances
         graph = tf.Graph()
