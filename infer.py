@@ -27,7 +27,7 @@ class SequenceWrapper(Sequence):
 
 
 def get_dummy_optimizer():
-    return Adam(lr=0.01)
+    return None
 
 
 def argparsing():
