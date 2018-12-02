@@ -55,7 +55,7 @@ def argparsing():
     parser.add_argument("--test-file", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--experiment", choices=["roc", "embedding"],
+    parser.add_argument("--experiment", choices=["roc", "embedding", "knn"],
                         default="roc")
 
     parser.add_argument("--dataset", choices=["cf", "gcj"], default="cf")
@@ -84,6 +84,7 @@ def argparsing():
 
     # Code KNN+LSTM
     lstm = subparsers.add_parser("knn_lstm")
+    lstm.set_defaults(experiment="knn")
     lstm.set_defaults(get_nn=lambda x:
                       nn.get_triplet_lstm_nn(x, get_dummy_optimizer()))
     lstm.set_defaults(infer_fn=lstm_knn_infer)
@@ -271,11 +272,10 @@ def run_experiment(args, infer_batches):
         run_roc_experiment(args, infer_batches)
     elif args.experiment == "embedding":
         run_embedding_experiment(args, infer_batches)
+    elif args.experiment == "knn":
+        run_knn_experiment(args, infer_batches)
     else:
         raise NotImplementedError()
-
-
-def run_knn_experiment(args, infer_batches):
 
 
 def main(args):
