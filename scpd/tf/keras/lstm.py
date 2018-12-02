@@ -162,7 +162,7 @@ class TripletLineLSTM(BaseModel):
         return self.model.get_layer("model_1").get_input_at(1)
 
     def get_pretrained_output(self):
-        return self.model.get_layer("model_1").get_layer("descriptor").output
+        return self.model.get_layer("model_1").get_output_at(1)
 
     def embeddings_to_watch(self):
         return ["output"]
