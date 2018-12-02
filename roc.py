@@ -1,5 +1,6 @@
 import argparse
 import json
+import pickle
 
 import sklearn
 
@@ -18,7 +19,7 @@ def argparsing():
 
 def load_curve(path):
     with open(path) as f:
-        return json.load(f)
+        return pickle.load(f)
 
 
 def draw_curve(curve):
