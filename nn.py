@@ -874,7 +874,6 @@ def run_softmax_lstm(args,
                                 batch_size=args.validation_batch_size,
                                 fn=extract_fn))
 
-    print("hidden args", args.hidden_size)
     optimizer = setup_optimizer(args)
     nn = SoftmaxLineLSTM(
         len(ALPHABET) + 1,
@@ -886,6 +885,7 @@ def run_softmax_lstm(args,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
         dropout_inter=args.dropout_inter,
+        hidden_size=args.hidden_size,
         optimizer=optimizer,
         classes=args.classes,
         metric=["accuracy"])
