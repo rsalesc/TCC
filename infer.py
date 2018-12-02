@@ -171,7 +171,7 @@ def run_embedding_experiment(args, infer_batches):
         _, y_true = sequence[i]
         y_pred = a[i]
 
-        for j in len(y_true):
+        for j in len(list(y_true)):
             if y_true[j] not in by_label:
                 by_label[y_true[j]] = []
             by_label[y_true[j]].append(len(every))

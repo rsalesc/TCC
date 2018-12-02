@@ -62,7 +62,7 @@ def gcj_easiest():
 
 def gcj_tiny():
     descriptors = [
-        CodejamDescriptor("tiny", 7, (12,),
+        CodejamDescriptor("tiny", 7, (12, 1, 1),
                           path=".cache/gcj.tiny.pkl")
     ]
 
