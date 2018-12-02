@@ -57,6 +57,31 @@ def pairwise_distances(embeddings, embeddings_b=None, squared=False):
     return distances
 
 
+def pairwise_nm_distances(x, y, scope=None, squared=False):
+    with tf.op_scope([x, y], scope, 'pairwise_l2_norm2'):
+        size_x = tf.shape(x)[0]
+        size_y = tf.shape(y)[0]
+        xx = tf.expand_dims(x, -1)
+        xx = tf.tile(xx, tf.pack([1, 1, size_y]))
+
+        yy = tf.expand_dims(y, -1)
+        yy = tf.tile(yy, tf.pack([1, 1, size_x]))
+        yy = tf.transpose(yy, perm=[2, 1, 0])
+
+        diff = tf.sub(xx, yy)
+        square_diff = tf.square(diff)
+
+        distances = tf.reduce_sum(square_diff, 1)
+
+        if not squared:
+            mask = tf.to_float(tf.equal(distances, 0.0))
+            distances = distances + mask * 1e-16
+            distances = tf.sqrt(distances)
+            distances = distances * (1.0 - mask)
+
+        return distances
+
+
 def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     d = {}
     if isinstance(metric, list):
@@ -131,7 +156,10 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
 
 def cross_score(labels_a, embeddings_a, labels_b, embeddings_b,
                 thresholds, metric="accuracy"):
-    dist = pairwise_distances(embeddings_a, embeddings_b=embeddings_b)
+    dist = tf.where(
+        tf.not_equal(tf.shape(labels_a)[0], tf.shape(labels_b)[0]),
+        pairwise_nm_distances(embeddings_a, embeddings_b),
+        pairwise_distances(embeddings_a, embeddings_b=embeddings_b))
     labels_a = tf.reshape(labels_a, [-1, 1])
     labels_b = tf.reshape(labels_b, [-1, 1])
     pair_labels = tf.cast(tf.equal(labels_a, tf.transpose(labels_b)), tf.int32)
