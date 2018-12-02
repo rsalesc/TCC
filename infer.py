@@ -257,6 +257,8 @@ def run_knn_experiment(args, infer_sets):
 
     training_embeddings, training_labels = training_set
     nei = KNeighborsClassifier(n_neighbors=args.neighbors)
+
+    print("Fitting KNN")
     nei.fit(training_embeddings, training_labels)
 
     test_embeddings, test_labels = test_set
