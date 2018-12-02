@@ -57,7 +57,7 @@ def pairwise_distances(embeddings, embeddings_b=None, squared=False):
     return distances
 
 
-def pairwise_nm_distances(A, B, scope=None, squared=False):
+def pairwise_nm_distances(A, embeddings_b, scope=None, squared=False):
     """
     Args:
       A,    [m,d] matrix
@@ -66,6 +66,8 @@ def pairwise_nm_distances(A, B, scope=None, squared=False):
       distances,    [m,n] matrix of pairwise distances
     """
     with tf.variable_scope('pairwise_dist'):
+        B = embeddings_b
+
         # squared norms of each row in A and B
         na = tf.reduce_sum(tf.square(A), 1)
         nb = tf.reduce_sum(tf.square(B), 1)
@@ -82,7 +84,7 @@ def pairwise_nm_distances(A, B, scope=None, squared=False):
             distances = distances + mask * 1e-16
             distances = tf.sqrt(distances)
             distances = distances * (1.0 - mask)
-            
+
         return distances
 
 
@@ -159,11 +161,8 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
 
 
 def cross_score(labels_a, embeddings_a, labels_b, embeddings_b,
-                thresholds, metric="accuracy"):
-    dist = tf.where(
-        tf.not_equal(tf.shape(labels_a)[0], tf.shape(labels_b)[0]),
-        pairwise_nm_distances(embeddings_a, embeddings_b),
-        pairwise_distances(embeddings_a, embeddings_b=embeddings_b))
+                thresholds, metric="accuracy", dist_fn=pairwise_distances):
+    dist = dist_fn(embeddings_a, embeddings_b=embeddings_b)
     labels_a = tf.reshape(labels_a, [-1, 1])
     labels_b = tf.reshape(labels_b, [-1, 1])
     pair_labels = tf.cast(tf.equal(labels_a, tf.transpose(labels_b)), tf.int32)
@@ -356,6 +355,9 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
         self._total += d["total"]
 
     def score_cross(self, labels, embeddings, i, metric):
+        dist_fn = pairwise_distances
+        if labels.shape[0] != self._labels.shape[0]:
+            dist_fn = pairwise_nm_distances
         graph = tf.Graph()
         with tf.Session(graph=graph) as sess:
             with graph.as_default():
@@ -366,7 +368,8 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
                         tf.convert_to_tensor(self._labels[i], tf.float32),
                         tf.convert_to_tensor(self._embeddings[i], tf.float32),
                         tf.convert_to_tensor(self._margin, tf.float32),
-                        metric=metric))
+                        metric=metric,
+                        dist_fn=dist_fn))
 
     def handle(self, labels, embeddings):
         labels = np.array(labels)
