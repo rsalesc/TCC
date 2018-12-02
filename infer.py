@@ -56,7 +56,7 @@ def argparsing():
     # Code LSTM
     lstm = subparsers.add_parser("lstm")
     lstm.set_defaults(get_nn=lambda x:
-                      nn.get_triplet_lstm_nn(x, get_dummy_optimizer))
+                      nn.get_triplet_lstm_nn(x, get_dummy_optimizer()))
     lstm.set_defaults(infer_fn=lstm_embedding_infer_batches)
 
     return parser.parse_args()
