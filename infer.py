@@ -190,7 +190,8 @@ def run_embedding_experiment(args, infer_batches):
 
         plt.scatter(x, y, c=c)
 
-    plt.savefig(args.save_to, bbox_inches='tight', dpi=300)
+    path = "{}.emb.png".format(args.save_to)
+    plt.savefig(path, bbox_inches='tight', dpi=300)
 
 
 def run_experiment(args, infer_batches):
