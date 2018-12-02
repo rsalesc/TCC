@@ -873,10 +873,7 @@ def run_softmax_lstm(args,
                                 input_size=input_size,
                                 batch_size=args.validation_batch_size,
                                 fn=extract_fn))
-
-    print(np.array(training_labels).shape)
-    print(np.array(validation_labels).shape)
-
+    
 
     optimizer = setup_optimizer(args)
     nn = SoftmaxLineLSTM(

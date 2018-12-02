@@ -117,7 +117,7 @@ class TripletLineLSTM(BaseModel):
         self.model.compile(
             loss=triplet_loss, optimizer=self._optimizer, metrics=self._metric)
 
-    def SiamesisNetwork(self):
+    def SiamesisNetwork(self, embedding=True):
         input = Input(shape=self.input_shape(), dtype="int32")
 
         x = TimeDistributed(
@@ -151,8 +151,9 @@ class TripletLineLSTM(BaseModel):
         # x = Dropout(self._dropout_fc)(x)
         # x = BatchNormalization()(x)
 
-        x = Dense(self._output_size, activation=None)(x)
-        x = Lambda(l2_normalization)(x)
+        if embedding:
+            x = Dense(self._output_size, activation=None)(x)
+            x = Lambda(l2_normalization)(x)
 
         return Model(input, x)
 
@@ -171,9 +172,9 @@ class SoftmaxLineLSTM(TripletLineLSTM):
 
     def build(self):
         x = Input(shape=self.input_shape(), dtype="int32")
-        a = self.SiamesisNetwork()(x)
+        a = self.SiamesisNetwork(embedding=False)(x)
         for size in self._hidden_size:
-            a = Dense(size, activation="linear")(a)
+            a = Dense(size, activation=None)(a)
 
         a = Dense(self._classes, activation="softmax")(a)
         self.model = Model(x, a)
