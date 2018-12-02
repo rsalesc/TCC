@@ -81,7 +81,7 @@ def lstm_embedding_infer_batches(args):
     y_pred = []
     for i in range(len(sequence)):
         x, y_true = sequence[i]
-        y_pred.append(net.predict(x))
+        y_pred.append(net.model.predict(x))
 
     return sequence, y_pred
 
