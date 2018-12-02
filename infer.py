@@ -110,12 +110,7 @@ def load_nn(args):
     model_h5 = "{}.h5".format(args.model_path)
 
     net = args.get_nn(xargs)
-    nn.build_scpd_model(net)
-
-    path_tf = "{}.tf".format(model_h5)
-    saver = tf.train.Saver()
-    sess = keras.backend.get_session()
-    saver.restore(sess, path_tf)
+    nn.build_scpd_model(net, path=model_h5)
     print(net.model.summary())
 
     return net

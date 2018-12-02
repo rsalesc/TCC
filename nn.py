@@ -629,10 +629,9 @@ def setup_optimizer(args):
 
 
 def build_scpd_model(nn, path=None):
-    if path is None:
-        nn.build()
-    else:
-        nn.model = load_model(path, nn.loader_objects(), compile=False)
+    nn.build()
+
+    if path is not None:
         path_tf = "{}.tf".format(path)
         saver = tf.train.Saver()
         sess = keras.backend.get_session()
