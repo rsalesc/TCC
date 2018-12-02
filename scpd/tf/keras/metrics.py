@@ -25,7 +25,7 @@ def upper_triangular_flat(A):
     return tf.boolean_mask(A, mask)
 
 
-def pairwise_distances(embeddings, squared=False):
+def pairwise_distances(embeddings, embeddings_b=None, squared=False):
     """Compute the 2D matrix of distances between all the embeddings.
     Args:
         embeddings: tensor of shape (batch_size, embed_dim)
@@ -35,7 +35,10 @@ def pairwise_distances(embeddings, squared=False):
     Returns:
         pairwise_distances: tensor of shape (batch_size, batch_size)
     """
-    dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
+    if embeddings_b is not None:
+        dot_product = tf.matmul(embeddings, tf.transpose(embeddings_b))
+    else:
+        dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
     square_norm = tf.diag_part(dot_product)
 
     # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
@@ -124,6 +127,18 @@ def contrastive_score(labels, dist, thresholds, metric="accuracy"):
     if not isinstance(metric, list):
         return next(iter(res.values()))
     return res
+
+
+def cross_score(labels_a, embeddings_a, labels_b, embeddings_b,
+                thresholds, metric="accuracy"):
+    dist = pairwise_distances(embeddings_a, embeddings_b=embeddings_b)
+    labels_a = tf.reshape(labels_a, [-1, 1])
+    labels_b = tf.reshape(labels_b, [-1, 1])
+    pair_labels = tf.cast(tf.equal(labels_a, tf.transpose(labels_b)), tf.int32)
+    flat_labels = tf.reshape(pair_labels, [-1, 1])
+    flat_dist = tf.reshape(dist, [-1, 1])
+
+    return contrastive_score(flat_labels, flat_dist, thresholds, metric=metric)
 
 
 def triplet_score(labels, embeddings, thresholds, metric="accuracy"):
@@ -263,7 +278,7 @@ class FlatPairBatchScorer(ContrastiveBatchScorer):
         return super().score(y_true, dist, metric)
 
 
-class CategoricalBatchScorer:
+class CategoricalBatchScorer(BatchScorer):
     def __init__(self):
         self._correct = 0
         self._total = 0
@@ -291,6 +306,55 @@ class CategoricalBatchScorer:
                 return self._correct / self._total
 
         raise NotImplementedError()
+
+
+class CompletePairContrastiveScorer(TripletBatchScorer):
+    def __init__(self, margin):
+        super().__init__()
+        self._labels = []
+        self._embeddings = []
+        self._margin = margin
+
+    def handle_finish(self, d):
+        self._tp += d["tp"]
+        self._tn += d["tn"]
+        self._pcp += d["pcp"]
+        self._pcn += d["pcn"]
+        self._cp += d["cp"]
+        self._cn += d["cn"]
+        self._total += d["total"]
+
+    def score_cross(self, labels, embeddings, i, metric):
+        graph = tf.Graph()
+        with tf.Session(graph=graph) as sess:
+            with graph.as_default():
+                return sess.run(
+                    cross_score(
+                        tf.convert_to_tensor(labels, tf.float32),
+                        tf.convert_to_tensor(embeddings, tf.float32),
+                        tf.convert_to_tensor(self._labels[i], tf.float32),
+                        tf.convert_to_tensor(self._embeddings[i], tf.float32),
+                        tf.convert_to_tensor(self._margin, tf.float32),
+                        metric=metric))
+
+    def handle(self, labels, embeddings):
+        labels = np.array(labels)
+        embeddings = np.array(embeddings)
+
+        METRICS = ["tp", "tn", "pcp", "pcn", "cp", "cn", "total"]
+
+        for i in range(len(self._labels)):
+            self.handle_finish(
+                self.score_cross(labels, embeddings, i, METRICS))
+
+        self.score(labels, embeddings, METRICS)
+
+        self._labels.append(labels)
+        self._embeddings.append(embeddings)
+        assert len(self._labels) == len(self._embeddings)
+
+    def result(self, metric):
+        return super().result(metric)
 
 
 class ContrastiveOnKerasMetric:
@@ -410,6 +474,14 @@ class FlatPairValidationMetric(SimilarityValidationMetric):
 
     def reset(self):
         self._scorer = FlatPairBatchScorer(self._margin)
+
+
+class CompletePairValidationMetric(SimilarityValidationMetric):
+    def __init__(self, *args, id="complete", **kwargs):
+        super().__init__(*args, id=id, **kwargs)
+
+    def reset(self):
+        self._scorer = CompletePairContrastiveScorer(self._margin)
 
 
 class CategoricalValidationMetric(OfflineMetric):

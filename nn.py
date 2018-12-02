@@ -20,12 +20,13 @@ from keras.callbacks import TensorBoard, EarlyStopping
 from sklearn.preprocessing import LabelEncoder
 
 from scpd.source import SourceCode
-from scpd.utils import ObjectPairing, opens, LinearDecay, extract_one_hot
+from scpd.utils import ObjectPairing, opens, LinearDecay, extract_labels
 from scpd.tf.keras.char import SimilarityCharCNN, TripletCharCNN
 from scpd.tf.keras.lstm import TripletLineLSTM, SoftmaxLineLSTM
 from scpd.tf.keras.mlp import TripletMLP
 from scpd.tf.keras.metrics import (TripletValidationMetric,
                                    ContrastiveValidationMetric,
+                                   CompletePairValidationMetric,
                                    CategoricalValidationMetric,
                                    FlatPairValidationMetric)
 from scpd.tf.keras.callbacks import OfflineMetrics
@@ -459,6 +460,8 @@ def argparsing():
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
 
+    parser.set_defaults(metric_mode="max")
+
     # MLP
     mlp = subparsers.add_parser("mlp")
     mlp_subparsers = mlp.add_subparsers(title="losses", dest="loss")
@@ -528,13 +531,14 @@ def argparsing():
     lstm_triplet.add_argument("--samples-per-class", type=int, default=6)
     lstm_triplet.set_defaults(func=run_triplet_lstm)
     lstm_triplet.set_defaults(emb_func=get_embedding_triplet_lstm)
+    lstm_triplet.set_defaults(metric_mode="min")
 
     lstm_softmax.add_argument("--batch-size", type=int, default=32)
     lstm_softmax.add_argument("--hidden-size", nargs="*", type=int, default=[])
     lstm_softmax.add_argument("--classes", type=int, required=True)
     lstm_softmax.add_argument("--pretrained", type=str, default=None)
-    lstm_softmax.add_argument("--pretrained-freeze", default=False, 
-        action="store_true")
+    lstm_softmax.add_argument("--pretrained-freeze", default=False,
+                              action="store_true")
     lstm_softmax.set_defaults(func=run_softmax_lstm)
     lstm_softmax.set_defaults(emb_func=None)
     lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
@@ -743,14 +747,13 @@ def run_triplet_lstm(args,
         input_size=input_size,
         fn=extract_fn)
 
-    validation_pairs = make_pairs(validation_sources, k1=1000, k2=1000)
-    random.shuffle(validation_pairs)
-
-    validation_sequence = FlatCodePairSequence(
-        validation_pairs,
-        batch_size=args.validation_batch_size,
-        input_size=input_size,
-        fn=extract_fn)
+    validation_labels = extract_labels(validation_sources)
+    validation_sequence = (
+        CategoricalCodeSequence(validation_sources,
+                                validation_labels,
+                                input_size=input_size,
+                                batch_size=args.validation_batch_size,
+                                fn=extract_fn))
 
     optimizer = setup_optimizer(args)
     nn = get_triplet_lstm_nn(args, optimizer)
@@ -759,15 +762,14 @@ def run_triplet_lstm(args,
     nn.compile()
     print(nn.model.summary())
 
-    val_threshold_metric = FlatPairValidationMetric(
+    val_metric = CompletePairValidationMetric(
         np.linspace(0.0, 2.0, args.threshold_granularity),
-        id="thresholded",
-        metric=["precision", "accuracy", "recall"],
-        argmax="accuracy")
+        id="complete",
+        metric=["eer"])
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric],
+        on_epoch=[val_metric],
         validation_data=validation_sequence,
-        best_metric="val_thresholded_accuracy")
+        best_metric="val_complete_eer")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
@@ -865,8 +867,10 @@ def run_softmax_lstm(args,
     input_size = (args.max_lines, args.max_chars)
     extract_fn = extract_hierarchical_features
 
-    training_labels, validation_labels = extract_one_hot(
-        [training_sources, validation_sources], args.classes)
+    training_labels, validation_labels = extract_labels(
+        [training_sources, validation_sources],
+        args.classes,
+        one_hot=True)
 
     training_sequence = (
         CategoricalCodeSequence(training_sources,

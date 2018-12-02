@@ -2,7 +2,7 @@ import os
 import random
 import shutil
 import pandas as pd
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 
 
 def opens(*args, encoding="utf-8", **kwargs):
@@ -79,8 +79,8 @@ def isiterable(iterable):
         return False
 
 
-def extract_one_hot(list_sources, classes=None):
-    labeler = LabelBinarizer()
+def extract_labels(list_sources, classes=None, one_hot=False):
+    labeler = LabelBinarizer() if one_hot else LabelEncoder()
     authors = {}
     for sources in list_sources:
         for source in sources:
