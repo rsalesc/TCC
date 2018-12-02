@@ -152,27 +152,43 @@ class TripletLineLSTM(BaseModel):
         # x = BatchNormalization()(x)
 
         if embedding:
-            x = Dense(self._output_size, activation=None)(x)
-            x = Lambda(l2_normalization)(x)
+            x = Dense(self._output_size, activation=None,
+                      name="descriptor_logits")(x)
+            x = Lambda(l2_normalization, name="descriptor")(x)
 
         return Model(input, x)
+
+    def get_pretrained_output(self):
+        return self.model.get_layer("descriptor").output
 
     def embeddings_to_watch(self):
         return ["output"]
 
 
 class SoftmaxLineLSTM(TripletLineLSTM):
-    def __init__(self, *args, classes=None, hidden_size=[128], **kwargs):
+    def __init__(self, *args, classes=None,
+                 hidden_size=[128], pretrained=None, **kwargs):
         assert classes is not None
         self._classes = classes
         self._hidden_size = list(hidden_size)
+        self._pretrained = pretrained
         super().__init__(*args, **kwargs)
         self._metric = [CategoricalOnKerasMetric(metric=x) for x
                         in self._metric_names]
 
     def build(self):
-        x = Input(shape=self.input_shape(), dtype="int32")
-        a = self.SiamesisNetwork(embedding=False)(x)
+        pretrained = self._pretrained
+
+        x = None
+        a = None
+
+        if pretrained is not None:
+            x = pretrained.model.input
+            a = pretrained.get_pretrained_output()
+        else:
+            x = Input(shape=self.input_shape(), dtype="int32")
+            a = self.SiamesisNetwork(embedding=False)(x)
+
         for size in self._hidden_size:
             a = Dense(size, activation="relu")(a)
             a = Dropout(self._dropout_fc)(a)

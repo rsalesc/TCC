@@ -532,6 +532,7 @@ def argparsing():
     lstm_softmax.add_argument("--batch-size", type=int, default=32)
     lstm_softmax.add_argument("--hidden-size", nargs="*", type=int, default=[])
     lstm_softmax.add_argument("--classes", type=int, required=True)
+    lstm_softmax.add_argument("--pretrained", type=str, default=None)
     lstm_softmax.set_defaults(func=run_softmax_lstm)
     lstm_triplet.set_defaults(emb_func=None)
     lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
@@ -707,6 +708,22 @@ def get_embedding_triplet_lstm(args):
     return x, labels, ["author"]
 
 
+def get_triplet_lstm_nn(args, optimizer):
+    return TripletLineLSTM(
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        char_capacity=args.char_capacity,
+        line_capacity=args.line_capacity,
+        dropout_char=args.dropout_char,
+        dropout_line=args.dropout_line,
+        dropout_fc=args.dropout_fc,
+        dropout_inter=args.dropout_inter,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric=["eer", "accuracy"])
+
+
 def run_triplet_lstm(args,
                      training_sources,
                      validation_sources,
@@ -733,19 +750,7 @@ def run_triplet_lstm(args,
         fn=extract_fn)
 
     optimizer = setup_optimizer(args)
-    nn = TripletLineLSTM(
-        len(ALPHABET) + 1,
-        embedding_size=args.char_embedding_size,
-        output_size=args.embedding_size,
-        char_capacity=args.char_capacity,
-        line_capacity=args.line_capacity,
-        dropout_char=args.dropout_char,
-        dropout_line=args.dropout_line,
-        dropout_fc=args.dropout_fc,
-        dropout_inter=args.dropout_inter,
-        margin=args.margin,
-        optimizer=optimizer,
-        metric=["eer", "accuracy"])
+    nn = get_triplet_lstm_nn(args, optimizer)
 
     build_scpd_model(nn)
     nn.compile()
@@ -874,6 +879,16 @@ def run_softmax_lstm(args,
                                 batch_size=args.validation_batch_size,
                                 fn=extract_fn))
 
+    def get_pretrain():
+        if not args.pretrained:
+            return None
+
+        nn = get_triplet_lstm_nn(args, setup_optimizer(args))
+        nn.model = load_model(args.pretrained, nn.loader_objects(),
+                              compile=False)
+
+        return nn
+
     optimizer = setup_optimizer(args)
     nn = SoftmaxLineLSTM(
         len(ALPHABET) + 1,
@@ -888,6 +903,7 @@ def run_softmax_lstm(args,
         hidden_size=args.hidden_size,
         optimizer=optimizer,
         classes=args.classes,
+        pretrained=get_pretrain(),
         metric=["accuracy"])
 
     build_scpd_model(nn)
