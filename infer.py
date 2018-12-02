@@ -36,6 +36,7 @@ def argparsing():
     parser.add_argument("--save-to", default=None)
     parser.add_argument("--threshold-granularity", type=int, default=256)
     parser.add_argument("--model-path", required=True)
+    parser.add_argument("--training-file", required=True)
     parser.add_argument("--test-file", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
