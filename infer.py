@@ -115,7 +115,7 @@ def get_roc_steps(args):
 
 
 def run_roc_experiment(args, infer_batches):
-    scorer = CompletePairContrastiveScorer(get_roc_steps())
+    scorer = CompletePairContrastiveScorer(get_roc_steps(args))
     sequence, a = infer_batches
 
     for i in range(len(sequence)):
