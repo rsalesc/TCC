@@ -141,7 +141,7 @@ def run_roc_experiment(args, infer_batches):
     frr = scorer.result("frr")
 
     path = "{}.roc.pkl".format(args.save_to)
-    with opens(path, "w") as f:
+    with opens(path, "wb") as f:
         pickle.dump({
             "name": args.roc_name,
             "frr": frr,
