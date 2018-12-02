@@ -57,28 +57,32 @@ def pairwise_distances(embeddings, embeddings_b=None, squared=False):
     return distances
 
 
-def pairwise_nm_distances(x, y, scope=None, squared=False):
-    with tf.op_scope([x, y], scope, 'pairwise_l2_norm2'):
-        size_x = tf.shape(x)[0]
-        size_y = tf.shape(y)[0]
-        xx = tf.expand_dims(x, -1)
-        xx = tf.tile(xx, tf.pack([1, 1, size_y]))
+def pairwise_nm_distances(A, B, scope=None, squared=False):
+    """
+    Args:
+      A,    [m,d] matrix
+      B,    [n,d] matrix
+    Returns:
+      distances,    [m,n] matrix of pairwise distances
+    """
+    with tf.variable_scope('pairwise_dist'):
+        # squared norms of each row in A and B
+        na = tf.reduce_sum(tf.square(A), 1)
+        nb = tf.reduce_sum(tf.square(B), 1)
 
-        yy = tf.expand_dims(y, -1)
-        yy = tf.tile(yy, tf.pack([1, 1, size_x]))
-        yy = tf.transpose(yy, perm=[2, 1, 0])
+        # na as a row and nb as a co"lumn vectors
+        na = tf.reshape(na, [-1, 1])
+        nb = tf.reshape(nb, [1, -1])
 
-        diff = tf.sub(xx, yy)
-        square_diff = tf.square(diff)
-
-        distances = tf.reduce_sum(square_diff, 1)
+        # return pairwise euclidead difference matrix
+        distances = tf.maximum(na - 2*tf.matmul(A, B, False, True) + nb, 0.0)
 
         if not squared:
             mask = tf.to_float(tf.equal(distances, 0.0))
             distances = distances + mask * 1e-16
             distances = tf.sqrt(distances)
             distances = distances * (1.0 - mask)
-
+            
         return distances
 
 
