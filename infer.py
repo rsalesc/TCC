@@ -1,6 +1,7 @@
 import argparse
 import pickle
 import numpy as np
+import random
 
 from keras.optimizers import Adam
 from keras.utils import Sequence
@@ -8,6 +9,7 @@ from keras.utils import Sequence
 from scpd.utils import extract_labels
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
+import constants
 import nn
 import dataset
 from nn import *
@@ -87,8 +89,10 @@ def lstm_embedding_infer_batches(args):
 
 
 def load_dataset(args):
+    random.seed(constants.MAGICAL_SEED)
     if args.dataset == "cf":
-        return dataset.preloaded([args.test_file], caide=args.caide)[0]
+        return dataset.preloaded([args.training_file,
+                                  args.test_file], caide=args.caide)[1]
 
     raise NotImplementedError()
 
