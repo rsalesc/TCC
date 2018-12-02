@@ -72,7 +72,6 @@ class TripletLineLSTM(BaseModel):
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
-        assert optimizer is not None
         self._alphabet_size = alphabet_size
         self._embedding_size = embedding_size
         self._output_size = output_size
