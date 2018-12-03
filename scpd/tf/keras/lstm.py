@@ -46,7 +46,10 @@ def mask_dropout(p):
             mask = tf.ones_like(x)
         noise = keep_prob + tf.random_uniform(tf.shape(mask))
         keep_mask = tf.cast(tf.floor(noise), tf.bool)
-        return tf.logical_and(mask, keep_mask)
+        return tf.where(
+            K.learning_phase(),
+            tf.logical_and(mask, keep_mask),
+            mask)
     return mask_dropout
 
 
@@ -138,7 +141,7 @@ class TripletLineLSTM(BaseModel):
                 [x, input])
 
         # drop some lines
-        # x = Lambda(lambda x: x, mask=mask_dropout(self._dropout_inter))(x)
+        x = Lambda(lambda x: x, mask=mask_dropout(self._dropout_inter))(x)
 
         for i, cap in enumerate(self._line_capacity):
             is_last = (i + 1 == len(self._line_capacity))
