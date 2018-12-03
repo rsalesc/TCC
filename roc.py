@@ -32,6 +32,8 @@ def draw_curve(curve):
     plt.plot(np.array(curve["far"]),
              1.0 - np.array(curve["frr"]), lw=LW, label=label)
 
+    print("EER of {}: {}".format(curve["name"], curve["eer"]))
+
 
 def main(args):
     curves = []
