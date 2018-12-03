@@ -906,7 +906,7 @@ def run_softmax_lstm(args,
         if not oargs.pretrained:
             return None
 
-        nn = get_triplet_lstm_nn(args, setup_optimizer(oargs))
+        nn = get_triplet_lstm_nn(args, setup_optimizer(args))
         nn.model = build_scpd_model(nn, path=oargs.pretrained)
 
         return nn
