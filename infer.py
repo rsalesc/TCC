@@ -88,7 +88,7 @@ def argparsing():
     smax.set_defaults(get_nn=lambda x:
                       nn.get_softmax_lstm_nn(x, get_dummy_optimizer()))
     smax.set_defaults(infer_fn=lstm_logits_infer_batches)
-    smax.add_argument("--top", nargs="+", default=[1, 3])
+    smax.add_argument("--top", nargs="+", type=int, default=[1, 3])
     smax.set_defaults(experiment="top-n")
 
     # Code KNN+LSTM
