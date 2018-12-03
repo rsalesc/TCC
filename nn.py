@@ -230,13 +230,14 @@ class CodeForTripletGenerator:
         while True:
             batch_x, batch_y = zip(
                 *self._pick_from_classes(self._classes_per_batch,
-                                         self._samples_per_class))
+                                         self._samples_per_class,
+                                         self._extra_negatives))
             np_x = self._ex.extract_batch_x(batch_x)
             np_y = np.array(batch_y)
             p = np.random.permutation(len(batch_x))
             yield np_x[p], np_y[p]
 
-    def _pick_from_classes(self, n, m):
+    def _pick_from_classes(self, n, m, neg):
         res = []
 
         for i in range(self._pointer, self._pointer + n):
@@ -244,6 +245,8 @@ class CodeForTripletGenerator:
             if cur == 0:
                 random.shuffle(self._classes)
             res.extend(self._pick_from_class(self._classes[cur], m))
+
+        res.extend(self._pick_random_samples(neg))
 
         self._pointer = (self._pointer + n) % len(self._classes)
         return res
@@ -264,6 +267,12 @@ class CodeForTripletGenerator:
         y = [self._labels[i] for i in chosen_indices]
         return list(zip(*(x, y))) + self._pick_from_class(
             label, n - len(chosen_indices))
+
+    def _pick_random_samples(self, n):
+        p = np.random.permutation(len(self._sequence))[:n]
+        x = [self._sequence[i] for i in p]
+        y = [self._labels[i] for i in p]
+        return list(zip(*(x, y)))
 
     def _generate_classes(self):
         return list(set(self._labels))
@@ -530,6 +539,7 @@ def argparsing():
     lstm_triplet.add_argument("--margin", required=True, type=float)
     lstm_triplet.add_argument("--classes-per-batch", type=int, default=12)
     lstm_triplet.add_argument("--samples-per-class", type=int, default=6)
+    lstm_triplet.add_argument("--extra-samples", type=int, default=0)
     lstm_triplet.set_defaults(func=run_triplet_lstm)
     lstm_triplet.set_defaults(emb_func=get_embedding_triplet_lstm)
     lstm_triplet.set_defaults(metric_mode="min")
@@ -752,6 +762,7 @@ def run_triplet_lstm(args,
         training_sources,
         classes_per_batch=args.classes_per_batch,
         samples_per_class=args.samples_per_class,
+        extra_negatives=args.extra_samples,
         input_size=input_size,
         fn=extract_fn)
 
