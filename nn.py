@@ -906,10 +906,12 @@ def run_softmax_lstm(args,
         if not oargs.pretrained:
             return None
 
-        nn = get_triplet_lstm_nn(args, setup_optimizer(args))
+        nn = get_triplet_lstm_nn(args, None)
         nn.model = build_scpd_model(nn, path=oargs.pretrained)
 
         return nn
+
+    pretrain_nn = get_pretrain()
 
     optimizer = setup_optimizer(args)
     nn = SoftmaxLineLSTM(
@@ -925,7 +927,7 @@ def run_softmax_lstm(args,
         hidden_size=oargs.hidden_size,
         optimizer=optimizer,
         classes=oargs.classes,
-        pretrained=get_pretrain(),
+        pretrained=pretrain_nn,
         metric=["accuracy"])
 
     build_scpd_model(nn)
