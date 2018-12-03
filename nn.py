@@ -907,7 +907,7 @@ def run_softmax_lstm(args,
             return None
 
         nn = get_triplet_lstm_nn(args, None)
-        nn.model = build_scpd_model(nn, path=oargs.pretrained)
+        build_scpd_model(nn, path=oargs.pretrained)
 
         return nn
 
