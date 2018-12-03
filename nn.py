@@ -876,6 +876,47 @@ def run_triplet_cnn(args,
         initial_epoch=args.epoch)
 
 
+def get_softmax_lstm_nn(args, optimize):
+    oargs = args
+
+    if args.pretrained:
+        basename = os.path.splitext(args.pretrained)[0]
+        args_fn = "{}.{}".format(basename, "args.pkl")
+        with opens(args_fn, "rb") as f:
+            args = pickle.load(f)
+
+    def get_pretrain():
+        if not oargs.pretrained:
+            return None
+
+        nn = get_triplet_lstm_nn(args, None)
+        build_scpd_model(nn, path=oargs.pretrained)
+
+        return nn
+
+    pretrain_nn = get_pretrain()
+
+    optimizer = None
+    if optimize:
+        optimizer = setup_optimizer(oargs)
+
+    return SoftmaxLineLSTM(
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        char_capacity=args.char_capacity,
+        line_capacity=args.line_capacity,
+        dropout_char=args.dropout_char,
+        dropout_line=args.dropout_line,
+        dropout_fc=args.dropout_fc,
+        dropout_inter=args.dropout_inter,
+        hidden_size=oargs.hidden_size,
+        optimizer=optimizer,
+        classes=oargs.classes,
+        pretrained=pretrain_nn,
+        metric=["accuracy"])
+
+
 def run_softmax_lstm(args,
                      training_sources,
                      validation_sources,
@@ -905,42 +946,7 @@ def run_softmax_lstm(args,
                                 batch_size=args.validation_batch_size,
                                 fn=extract_fn))
 
-    oargs = args
-
-    if args.pretrained:
-        basename = os.path.splitext(args.pretrained)[0]
-        args_fn = "{}.{}".format(basename, "args.pkl")
-        with opens(args_fn, "rb") as f:
-            args = pickle.load(f)
-
-    def get_pretrain():
-        if not oargs.pretrained:
-            return None
-
-        nn = get_triplet_lstm_nn(args, None)
-        build_scpd_model(nn, path=oargs.pretrained)
-
-        return nn
-
-    pretrain_nn = get_pretrain()
-
-    optimizer = setup_optimizer(args)
-    nn = SoftmaxLineLSTM(
-        len(ALPHABET) + 1,
-        embedding_size=args.char_embedding_size,
-        output_size=args.embedding_size,
-        char_capacity=args.char_capacity,
-        line_capacity=args.line_capacity,
-        dropout_char=args.dropout_char,
-        dropout_line=args.dropout_line,
-        dropout_fc=args.dropout_fc,
-        dropout_inter=args.dropout_inter,
-        hidden_size=oargs.hidden_size,
-        optimizer=optimizer,
-        classes=oargs.classes,
-        pretrained=pretrain_nn,
-        metric=["accuracy"])
-
+    nn = get_softmax_lstm_nn(args, optimize=True)
     build_scpd_model(nn)
     nn.compile()
     print(nn.model.summary())
@@ -951,14 +957,14 @@ def run_softmax_lstm(args,
         on_epoch=[val_metric],
         validation_data=validation_sequence,
         best_metric="val_accuracy")
-    tb = setup_tensorboard(oargs, nn)
+    tb = setup_tensorboard(args, nn)
 
     nn.train(
         training_sequence,
         callbacks=[om, tb] + callbacks,
-        epochs=oargs.max_epochs,
+        epochs=args.max_epochs,
         shuffle=True,
-        initial_epoch=oargs.epoch)
+        initial_epoch=args.epoch)
 
 
 def main(args):

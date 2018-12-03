@@ -55,11 +55,11 @@ def argparsing():
     parser.add_argument("--test-file", nargs="+", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--experiment", choices=["roc", "embedding", "knn"],
+    parser.add_argument("--experiment", choices=["roc", "embedding", "knn", "top-n"],
                         default="roc")
 
     parser.add_argument("--dataset", choices=[
-        "cf", "gcj", "gcjr", "cf+gcj"
+        "cf", "gcj", "gcjt", "gcjr", "cf+gcj"
     ], default="cf")
     parser.add_argument("--roc-name", default="classifier")
 
@@ -84,6 +84,13 @@ def argparsing():
                       nn.get_triplet_lstm_nn(x, get_dummy_optimizer()))
     lstm.set_defaults(infer_fn=lstm_embedding_infer_batches)
 
+    smax = subparsers.add_parser("softmax_lstm")
+    smax.set_defaults(get_nn=lambda x:
+                      nn.get_softmax_lstm_nn(x, get_dummy_optimizer()))
+    smax.set_defaults(infer_fn=lstm_logits_infer_batches)
+    smax.add_argument("--top", nargs="+", default=[1, 3])
+    smax.set_defaults(experiment="top-n")
+
     # Code KNN+LSTM
     lstm = subparsers.add_parser("knn_lstm")
     lstm.set_defaults(experiment="knn")
@@ -92,6 +99,38 @@ def argparsing():
     lstm.set_defaults(infer_fn=lstm_knn_infer)
 
     return parser.parse_args()
+
+
+def lstm_logits_infer_batches(args):
+    xargs = load_xargs(args.model_path)
+    net = load_nn(args)
+    sources = load_dataset(args)
+
+    input_size = (xargs.max_lines, xargs.max_chars)
+    extract_fn = nn.extract_hierarchical_features
+
+    hot_labels = extract_labels([sources], one_hot=True)[0]
+    labels = extract_labels([sources])[0]
+
+    sequence = (
+        nn.CategoricalCodeSequence(sources,
+                                   hot_labels,
+                                   input_size=input_size,
+                                   batch_size=args.batch_size,
+                                   fn=extract_fn))
+
+    y_pred = []
+    for i in range(len(sequence)):
+        x, y_true = sequence[i]
+        y_pred.append(net.model.predict_on_batch(x))
+
+    sequence = (
+        nn.CategoricalCodeSequence(sources,
+                                   labels,
+                                   input_size=input_size,
+                                   batch_size=args.batch_size,
+                                   fn=extract_fn))
+    return sequence, y_pred
 
 
 def lstm_knn_infer(args):
@@ -172,6 +211,9 @@ def load_dataset(args, ds=None, files=None):
     if ds == "gcj":
         return dataset.preloaded_gcj_easiest(
             files, caide=args.caide)[0]
+    if ds == "gcjt":
+        return dataset.preloaded_gcj_easiest(
+            files, caide=args.caide)[1]
     if ds == "gcjr":
         data = dataset.preloaded_gcj_random(
             files, caide=args.caide)
@@ -305,7 +347,34 @@ def run_knn_experiment(args, infer_sets):
     print("Accuracy: {}".format(acc))
 
 
+def run_top_experiment(args, infer_batches):
+    sequence, a = infer_batches
+    n_batches = len(sequence)
+
+    results = {}
+    for K in args.top:
+        results[K] = 0
+    total = 0
+
+    for i in range(n_batches):
+        _, y_true = sequence[i]
+        y_pred = np.array(a[i])
+
+        total += len(y_true)
+
+        for K in args.top:
+            top_k_indices = np.argpartition(-y_pred, K-1)[..., :K]
+            corr = np.sum(np.equal(top_k_indices[..., np.newaxis],
+                                   y_true), axis=-1) > 0
+            results[K] += np.sum(corr)
+
+    for K in args.top:
+        print("top-{}: {}".format(K, 1.0 * results[K] / total))
+
+
 def run_experiment(args, infer_batches):
+    if args.experiment == "top-n":
+        run_top_experiment(args, infer_batches)
     if args.experiment == "roc":
         run_roc_experiment(args, infer_batches)
     elif args.experiment == "embedding":
