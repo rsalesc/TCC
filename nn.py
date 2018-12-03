@@ -894,13 +894,20 @@ def run_softmax_lstm(args,
                                 batch_size=args.validation_batch_size,
                                 fn=extract_fn))
 
+    oargs = args
+
+    if args.pretrained:
+        basename = os.path.splitext(args.pretrained)[0]
+        args_fn = "{}.{}".format(basename, "args.pkl")
+        with opens(args_fn, "rb") as f:
+            args = pickle.load(f)
+
     def get_pretrain():
         if not args.pretrained:
             return None
 
-        nn = get_triplet_lstm_nn(args, setup_optimizer(args))
-        nn.model = load_model(args.pretrained, nn.loader_objects(),
-                              compile=False)
+        nn = get_triplet_lstm_nn(args, setup_optimizer(oargs))
+        nn.model = build_scpd_model(nn, path=args.pretrained)
 
         return nn
 
@@ -915,9 +922,9 @@ def run_softmax_lstm(args,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
         dropout_inter=args.dropout_inter,
-        hidden_size=args.hidden_size,
+        hidden_size=oargs.hidden_size,
         optimizer=optimizer,
-        classes=args.classes,
+        classes=oargs.classes,
         pretrained=get_pretrain(),
         metric=["accuracy"])
 
@@ -931,14 +938,14 @@ def run_softmax_lstm(args,
         on_epoch=[val_metric],
         validation_data=validation_sequence,
         best_metric="val_accuracy")
-    tb = setup_tensorboard(args, nn)
+    tb = setup_tensorboard(oargs, nn)
 
     nn.train(
         training_sequence,
         callbacks=[om, tb] + callbacks,
-        epochs=args.max_epochs,
+        epochs=oargs.max_epochs,
         shuffle=True,
-        initial_epoch=args.epoch)
+        initial_epoch=oargs.epoch)
 
 
 def main(args):
