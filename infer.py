@@ -58,7 +58,9 @@ def argparsing():
     parser.add_argument("--experiment", choices=["roc", "embedding", "knn"],
                         default="roc")
 
-    parser.add_argument("--dataset", choices=["cf", "gcj"], default="cf")
+    parser.add_argument("--dataset", choices=[
+        "cf", "gcj", "gcjr", "cf+gcj"
+    ], default="cf")
     parser.add_argument("--roc-name", default="classifier")
 
     parser.add_argument("--neighbors", default=6, type=int)
@@ -157,14 +159,41 @@ def load_knn_dataset(args):
                                          caide=args.caide)
 
 
-def load_dataset(args):
+def load_dataset(args, ds=None, files=None):
+    if ds is None:
+        ds = args.dataset
+    if files is None:
+        files = args.test_file
+
     random.seed(constants.MAGICAL_SEED)
-    if args.dataset == "cf":
-        data = dataset.preloaded(args.test_file, caide=args.caide)
+    if ds == "cf":
+        data = dataset.preloaded(files, caide=args.caide)
         return [x for y in data for x in y]
-    if args.dataset == "gcj":
+    if ds == "gcj":
         return dataset.preloaded_gcj_easiest(
-            args.test_file, caide=args.caide)[0]
+            files, caide=args.caide)[0]
+    if ds == "gcjr":
+        data = dataset.preloaded_gcj_random(
+            files, caide=args.caide)
+        return [x for y in data for x in y]
+    if ds == "cf+gcj":
+        cf = []
+        gcj = []
+
+        for path in files:
+            if "gcj" in path:
+                gcj.append(path)
+            else:
+                cf.append(path)
+
+        res = []
+
+        if len(gcj) > 0:
+            res.extend(load_dataset(args, ds="gcjr", files=gcj))
+        if len(cf) > 0:
+            res.extend(load_dataset(args, ds="cf", files=cf))
+
+        return res
 
     raise NotImplementedError()
 

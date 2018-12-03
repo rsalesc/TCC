@@ -102,5 +102,24 @@ def preloaded_gcj_easiest(paths, caide=False):
     return builder.extract()
 
 
+def preloaded_gcj_random(paths, caide=False):
+    descriptors = [
+        CodejamDescriptor(path, None, None, path=path) for path in paths
+    ]
+
+    plugins = [gcj_codes_plugin]
+
+    if caide:
+        plugins.append(cf_caide_plugin(
+            "/usr/include/clang/3.6/include", use_cache=True))
+
+    years = [2014]
+    lang = "cpp"
+
+    builder = CodejamBuilder(descriptors, years, lang,
+                             at_least=8, plugins=plugins)
+    return builder.extract()
+
+
 if __name__ == "__main__":
     gcj_tiny()
