@@ -141,7 +141,7 @@ class TripletLineLSTM(BaseModel):
                 [x, input])
 
         # drop some lines
-        x = Dropout(self._dropout_inter)(x)
+        # x = Dropout(self._dropout_inter)(x)
 
         for i, cap in enumerate(self._line_capacity):
             is_last = (i + 1 == len(self._line_capacity))
