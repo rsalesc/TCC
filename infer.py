@@ -10,7 +10,7 @@ from scpd.utils import extract_labels, opens
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 
 from sklearn.manifold import TSNE
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 
 import tensorflow as tf
 import keras
@@ -256,9 +256,15 @@ def run_knn_experiment(args, infer_sets):
     training_set, test_set = infer_sets
 
     training_embeddings, training_labels = training_set
-    nei = KNeighborsClassifier(n_neighbors=args.neighbors, weights="distance")
+    nei = None
 
-    print("Fitting KNN")
+    if args.neighbors == 0:
+        nei = NearestCentroid()
+    else:
+        nei = KNeighborsClassifier(n_neighbors=args.neighbors,
+                                   weights="distance")
+
+    print("Fitting nearest neighbor")
     nei.fit(training_embeddings, training_labels)
 
     test_embeddings, test_labels = test_set
