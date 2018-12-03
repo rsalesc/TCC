@@ -364,8 +364,8 @@ def run_top_experiment(args, infer_batches):
 
         for K in args.top:
             top_k_indices = np.argpartition(-y_pred, K-1)[..., :K]
-            corr = np.sum(np.equal(top_k_indices[..., np.newaxis],
-                                   y_true), axis=-1) > 0
+            corr = np.sum(np.equal(top_k_indices,
+                                   y_true[..., np.newaxis]), axis=-1) > 0
             results[K] += np.sum(corr)
 
     for K in args.top:
@@ -375,7 +375,7 @@ def run_top_experiment(args, infer_batches):
 def run_experiment(args, infer_batches):
     if args.experiment == "top-n":
         run_top_experiment(args, infer_batches)
-    if args.experiment == "roc":
+    elif args.experiment == "roc":
         run_roc_experiment(args, infer_batches)
     elif args.experiment == "embedding":
         run_embedding_experiment(args, infer_batches)
