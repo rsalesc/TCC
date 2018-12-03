@@ -52,7 +52,7 @@ def argparsing():
     parser.add_argument("--save-to", default=None)
     parser.add_argument("--threshold-granularity", type=int, default=256)
     parser.add_argument("--model-path", required=True)
-    parser.add_argument("--test-file", required=True)
+    parser.add_argument("--test-file", nargs="+", required=True)
     parser.add_argument("--caide", default=False, action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--experiment", choices=["roc", "embedding", "knn"],
@@ -153,17 +153,18 @@ def lstm_embedding_infer_batches(args):
 
 def load_knn_dataset(args):
     random.seed(constants.MAGICAL_SEED)
-    return dataset.preloaded_gcj_easiest([args.test_file],
+    return dataset.preloaded_gcj_easiest(args.test_file,
                                          caide=args.caide)
 
 
 def load_dataset(args):
     random.seed(constants.MAGICAL_SEED)
     if args.dataset == "cf":
-        return dataset.preloaded([args.test_file], caide=args.caide)[0]
+        data = dataset.preloaded(args.test_file, caide=args.caide)
+        return [x for y in data for x in y]
     if args.dataset == "gcj":
         return dataset.preloaded_gcj_easiest(
-            [args.test_file], caide=args.caide)[0]
+            args.test_file, caide=args.caide)[0]
 
     raise NotImplementedError()
 
