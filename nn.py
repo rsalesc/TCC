@@ -903,11 +903,11 @@ def run_softmax_lstm(args,
             args = pickle.load(f)
 
     def get_pretrain():
-        if not args.pretrained:
+        if not oargs.pretrained:
             return None
 
         nn = get_triplet_lstm_nn(args, setup_optimizer(oargs))
-        nn.model = build_scpd_model(nn, path=args.pretrained)
+        nn.model = build_scpd_model(nn, path=oargs.pretrained)
 
         return nn
 
