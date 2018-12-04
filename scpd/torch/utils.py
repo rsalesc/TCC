@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 def last_step_indices(self):
@@ -29,8 +30,40 @@ def last_step_of_packed_sequence(self):
     Returns:
         Variable containing the last step of each sequence in the batch.
     """
-    indices = torch.LongTensor(self.last_step_indices())
+    indices = torch.LongTensor(last_step_indices(self))
     if self.data.data.is_cuda:
         indices = indices.cuda(self.data.data.get_device())
     last_step = self.data.index_select(0, indices)
     return last_step
+
+
+def sort_and_pad_tensor(batch, type, lengths=None, features=tuple()):
+    if isinstance(features, int):
+        features = (features,)
+    if not isinstance(features, tuple):
+        features = tuple(features)
+    if lengths is None:
+        lengths = [len(line) for line in batch]
+    lengths = torch.LongTensor(lengths)
+
+    seq_tensor = torch.zeros((len(batch), lengths.max()) + features)
+    seq_tensor = seq_tensor.type(type)
+    for idx, (seq, seqlen) in enumerate(zip(batch, lengths)):
+        seq_tensor[idx, :seqlen] = seq.type(type)
+
+    lengths, perm_idx = lengths.sort(0, descending=True)
+    seq_tensor = seq_tensor[perm_idx]
+    return seq_tensor, lengths, perm_idx
+
+
+def sort_lengths(lengths):
+    lengths = torch.LongTensor(lengths)
+    lengths, perm_idx = lengths.sort(0, descending=True)
+    return lengths, perm_idx
+
+
+def inverse_p(perm):
+    inverse = [0] * len(perm)
+    for i, p in enumerate(perm):
+        inverse[p] = i
+    return inverse
