@@ -207,7 +207,8 @@ class CodeForTripletGenerator:
                  samples_per_class,
                  extra_negatives=0,
                  input_size=None,
-                 fn=None):
+                 fn=None,
+                 np_cast=True):
         assert fn is not None
         self._sequence = sequence.copy()
         self._labels = self._generate_labels()
@@ -220,6 +221,7 @@ class CodeForTripletGenerator:
         self._input_size = input_size
         self._extra_negatives = extra_negatives
         self._ex = NeuralFeatureExtractor(fn, input_size)
+        self._np_cast = np_cast
 
     def __len__(self):
         batch_size = (self._classes_per_batch * self._samples_per_class +
@@ -232,10 +234,17 @@ class CodeForTripletGenerator:
                 *self._pick_from_classes(self._classes_per_batch,
                                          self._samples_per_class,
                                          self._extra_negatives))
-            np_x = self._ex.extract_batch_x(batch_x)
-            np_y = np.array(batch_y)
+
+            batch_x = self._ex.extract_batch_x(batch_x)
             p = np.random.permutation(len(batch_x))
-            yield np_x[p], np_y[p]
+            if self._np_cast:
+                np_x = np.array(x)
+                np_y = np.array(batch_y)
+                yield np_x[p], np_y[p]
+            else:
+                X = [batch_x[i] for i in p]
+                y = [batch_y[i] for i in p]
+                yield X, y
 
     def _pick_from_classes(self, n, m, neg):
         res = []

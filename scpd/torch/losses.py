@@ -18,7 +18,7 @@ class ContrastiveLoss(nn.Module):
     def forward(self, output1, output2, target, size_average=True):
         distances = (output2 - output1).pow(2).sum(1)  # squared distances
         losses = 0.5 * (target.float() * distances +
-                        (1 + -1 * target).float() * F.relu(self.margin - distances.sqrt()).pow(2))
+                        (1 + -1 * target).float() * F.relu(self.margin - distances).pow(2))
         return losses.mean() if size_average else losses.sum()
 
 
@@ -75,10 +75,11 @@ class OnlineTripletLoss(nn.Module):
     triplets
     """
 
-    def __init__(self, margin, triplet_selector):
+    def __init__(self, margin, triplet_selector, average=False):
         super(OnlineTripletLoss, self).__init__()
         self.margin = margin
         self.triplet_selector = triplet_selector
+        self.average = average
 
     def forward(self, embeddings, target):
 
@@ -96,10 +97,18 @@ class OnlineTripletLoss(nn.Module):
         return losses.mean(), len(triplets)
 
 
-def pdist(vectors):
+def pdist(vectors, squared=False):
     distance_matrix = -2 * vectors.mm(torch.t(vectors)) + vectors.pow(2).sum(dim=1).view(1, -1) + vectors.pow(2).sum(
         dim=1).view(-1, 1)
-    return distance_matrix
+
+    error_mask = distance_matrix < 0
+    if not squared:
+        distance_matrix = (distance_matrix + error_mask.float() * 1e-16).sqrt()
+
+    distance_matrix = distance_matrix * (1.0 - error_mask.float())
+    n = vectors.size()[0]
+    mask_diagonals = torch.ones_like(distance_matrix) - torch.ones((n,)).diag()
+    return distance_matrix * mask_diagonals
 
 
 class PairSelector:
@@ -229,7 +238,8 @@ def random_hard_negative(loss_values):
 def semihard_negative(loss_values, margin):
     semihard_negatives = np.where(np.logical_and(
         loss_values < margin, loss_values > 0))[0]
-    return np.random.choice(semihard_negatives) if len(semihard_negatives) > 0 else None
+    return (np.random.choice(semihard_negatives) 
+        if len(semihard_negatives) > 0 else hardest_negative(loss_values))
 
 
 class FunctionNegativeTripletSelector(TripletSelector):
