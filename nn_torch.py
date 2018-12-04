@@ -10,16 +10,19 @@ from scpd.utils import LinearDecay, extract_labels
 from scpd.tf.keras.metrics import CompletePairContrastiveScorer
 from scpd.torch import lstm
 
+
 def extract_hierarchical_features(source, input_size=None):
     assert isinstance(input_size, tuple) and len(input_size) == 2
     max_lines, max_chars = input_size
     assert max_lines is not None
     assert max_chars is not None
-    lines = [np.array(nn.encode_text(line[:max_chars])) for line in source.fetch().splitlines()]
+    lines = [np.array(nn.encode_text(line[:max_chars]))
+             for line in source.fetch().splitlines()]
     lines = [(x if len(x) > 0 else np.array([0])) for x in lines]
     lines = lines[-max_lines:]
 
     return lines
+
 
 def argparsing():
     parser = argparse.ArgumentParser()
@@ -28,7 +31,7 @@ def argparsing():
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--threads", type=int, default=None)
     parser.add_argument("--period", type=int, default=0)
-    parser.add_argument("--eval-every", type=int, default=None)
+    parser.add_argument("--eval-every", type=int, required=True)
     parser.add_argument("--lr", default=0.05, type=float)
     parser.add_argument("--lr-decay", default=0, type=float)
     parser.add_argument("--patience", default=10, type=int)
@@ -96,6 +99,10 @@ def setup_optimizer_fn(args):
 def get_triplet_lstm_module(args):
     optimizer_fn = setup_optimizer_fn(args)
     net = lstm.TripletLSTM(alphabet=len(nn.ALPHABET) + 1,
+                           alphabet_embedding=args.char_embedding_size,
+                           char_hidden_size=args.char_capacity[0],
+                           line_hidden_size=args.line_capacity[0],
+                           margin=args.margin,
                            optimizer_fn=optimizer_fn)
     return net
 
@@ -123,7 +130,9 @@ if __name__ == "__main__":
         np_cast=False)
 
     validation_labels = extract_labels([validation_sources])[0]
-    validation_sequence = nn.CategoricalCodeSequence(validation_sources, validation_labels, input_size=input_size, batch_size=args.validation_batch_size, fn=extract_fn)
+    validation_sequence = nn.CategoricalCodeSequence(
+        validation_sources, validation_labels, input_size=input_size, 
+        batch_size=args.validation_batch_size, fn=extract_fn)
 
     net = get_triplet_lstm_module(args)
 
