@@ -349,7 +349,7 @@ def window_or_extend(s, window_size, pad=0):
     if abs(window_size) > len(s):
         return crop_or_extend(s, window_size, pad=pad)
     window_size = abs(window_size)
-    st = np.random.randint(0, len(s) - window_size)
+    st = np.random.randint(low=0, high=len(s) - window_size)
     return s[st:st + window_size]
 
 
@@ -382,6 +382,7 @@ def _extract_window_hierarchical_features(source, input_size=None, dropout=0.0):
              for x in source.fetch().splitlines()]
     lines = window_or_extend(lines, -max_lines, pad=[0] * max_chars)
     lines = [line for line in lines if np.random.rand() < keep_prob]
+    print(np.array(lines).shape)
     return np.array(lines)
 
 
