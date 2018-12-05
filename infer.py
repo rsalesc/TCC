@@ -124,7 +124,7 @@ def lstm_logits_infer_batches(args):
     y_pred = []
     for i in range(len(sequence)):
         x, y_true = sequence[i]
-        acc = np.array(0.0)
+        acc = 0.0
         for j in range(args.average):
             acc += net.model.predict_on_batch(x)
         y_pred.append(acc / args.average)
@@ -166,7 +166,7 @@ def lstm_knn_infer(args):
         y_pred = []
         for i in range(len(sequence)):
             x, y_true = sequence[i]
-            acc = np.array(0.0)
+            acc = 0.0
             for j in range(args.average):
                 acc += net.model.predict_on_batch(x)
             y_pred.extend(acc / args.average)
@@ -197,7 +197,7 @@ def lstm_embedding_infer_batches(args):
     y_pred = []
     for i in range(len(sequence)):
         x, y_true = sequence[i]
-        acc = np.array(0.0)
+        acc = 0.0
         for j in range(args.average):
             acc += net.model.predict_on_batch(x)
         y_pred.append(acc / args.average)
