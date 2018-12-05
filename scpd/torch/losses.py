@@ -141,7 +141,7 @@ def triplet_semihard_loss(embeddings, labels, margin=1.0, squared=False):
     labels = labels.view(-1, 1)
     batch_size = lshape[0]
 
-    pdist_matrix = pdist(embeddings, squared=squared)
+    pdist_matrix = pdist(embeddings, squared=squared).contiguous()
     adjacency = torch.eq(labels, torch.t(labels))
     adjacency_not = adjacency ^ 1
 
