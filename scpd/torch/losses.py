@@ -130,7 +130,7 @@ def masked_min(data, mask, axis):
     return masked + axis_maximums
 
 
-def triplet_semihard_loss(labels, embeddings, margin=1.0, squared=False):
+def triplet_semihard_loss(embeddings, labels, margin=1.0, squared=False):
     cuda = embeddings.is_cuda
     if cuda:
         labels = labels.cuda()
@@ -190,7 +190,7 @@ class TripletSemihardLoss(nn.Module):
 
     def forward(self, embeddings, labels):
         return triplet_semihard_loss(embeddings, labels,
-                                     margin=self.margin, 
+                                     margin=self.margin,
                                      squared=self.squared)
 
 
