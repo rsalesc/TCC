@@ -238,7 +238,7 @@ class CodeForTripletGenerator:
             batch_x = self._ex.extract_batch_x(batch_x)
             p = np.random.permutation(len(batch_x))
             if self._np_cast:
-                np_x = np.array(x)
+                np_x = np.array(batch_x)
                 np_y = np.array(batch_y)
                 yield np_x[p], np_y[p]
             else:
