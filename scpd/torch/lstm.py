@@ -135,7 +135,7 @@ class TripletLSTM(nn.Module):
             out = out.cuda()
             y = y.cuda()
 
-        loss, triplets = self.loss(out, y)
+        loss = self.loss(out, y)
         loss.backward()
         self.optimizer.step()
 
