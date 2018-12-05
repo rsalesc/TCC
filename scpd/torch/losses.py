@@ -107,7 +107,7 @@ def pdist(vectors, squared=False):
 
     distance_matrix = distance_matrix * (1.0 - error_mask.float())
     n = vectors.size()[0]
-    mask_diagonals = torch.ones_like(distance_matrix) - torch.ones((n,)).diag()
+    mask_diagonals = torch.ones_like(distance_matrix) - torch.ones((n,)).cuda().diag()
     return distance_matrix * mask_diagonals
 
 
