@@ -117,16 +117,16 @@ def pdist(vectors, squared=False):
 
 
 def masked_max(data, mask, axis):
-    axis_minimums = torch.min(data, axis, keepdim=True)
+    axis_minimums, _ = torch.min(data, axis, keepdim=True)
     dif = data - axis_minimums.expand_as(data)
-    masked = torch.max(dif * mask.float(), axis, keepdim=True)
+    masked, _ = torch.max(dif * mask.float(), axis, keepdim=True)
     return masked + axis_minimums
 
 
 def masked_min(data, mask, axis):
-    axis_maximums = torch.max(data, axis, keepdim=True)
+    axis_maximums, _ = torch.max(data, axis, keepdim=True)
     dif = data - axis_maximums.expand_as(data)
-    masked = torch.min(dif * mask.float(), axis, keepdim=True)
+    masked, _ = torch.min(dif * mask.float(), axis, keepdim=True)
     return masked + axis_maximums
 
 
