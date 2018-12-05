@@ -89,6 +89,8 @@ class TripletLSTM(nn.Module):
             sample = [torch.LongTensor(x) for x in sample]
             sample, lengths, perm = utils.sort_and_pad_tensor(
                 sample, type=torch.LongTensor)
+            if cuda:
+                sample = sample.cuda()
             sample = self.embed(sample)
             packed_sample = pack_padded_sequence(sample, lengths.cpu().numpy(),
                                                  batch_first=True)
@@ -116,6 +118,8 @@ class TripletLSTM(nn.Module):
         out = self.line_level_lstm(packed_batch)
         out = out[utils.inverse_p(perm)]
 
+        if cuda:
+            out = out.cuda()
         out = self.line_level_seq(out)
         out = F.normalize(out, p=2, dim=-1)
         return out
