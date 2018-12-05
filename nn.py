@@ -826,7 +826,7 @@ def run_triplet_lstm(args,
     om = OfflineMetrics(
         on_epoch=[val_metric],
         validation_data=validation_sequence,
-        best_metric="val_complete_eer")
+        best_metric="val_complete_loss")
     tb = setup_tensorboard(args, nn)
 
     nn.train(

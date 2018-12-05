@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import common
 
 
 def safe_nanmax(x):
@@ -344,6 +345,7 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
         super().__init__(*args, **kwargs)
         self._labels = []
         self._embeddings = []
+        self._loss = 0
 
     def handle_finish(self, d):
         self._tp += d["tp"]
@@ -371,6 +373,15 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
                         metric=metric,
                         dist_fn=dist_fn))
 
+    def compute_loss(self, labels, embeddings):
+        return 0
+        graph = tf.Graph()
+        with tf.Session(graph=graph) as sess:
+            with graph.as_default():
+                return common.triplet_loss(self._margin)(
+                    tf.convert_to_tensor(labels, tf.float32),
+                    tf.convert_to_tensor(embeddings, tf.float32)).eval(session=sess)
+
     def handle(self, labels, embeddings):
         labels = np.array(labels)
         embeddings = np.array(embeddings)
@@ -382,12 +393,15 @@ class CompletePairContrastiveScorer(TripletBatchScorer):
                 self.score_cross(labels, embeddings, i, METRICS))
 
         self.score(labels, embeddings, METRICS)
+        self._loss += self.compute_loss(labels, embeddings)
 
         self._labels.append(labels)
         self._embeddings.append(embeddings)
         assert len(self._labels) == len(self._embeddings)
 
     def result(self, metric):
+        if metric == "loss":
+            return self._loss
         return super().result(metric)
 
 
