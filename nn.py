@@ -382,6 +382,7 @@ def _extract_window_hierarchical_features(source, input_size=None, dropout=0.0):
              for x in source.fetch().splitlines()]
     lines = window_or_extend(lines, -max_lines, pad=[0] * max_chars)
     lines = [line for line in lines if np.random.rand() < keep_prob]
+    lines = crop_or_extend(lines, max_lines, pad=[0] * max_chars)
     return np.array(lines)
 
 
@@ -809,7 +810,7 @@ def run_triplet_lstm(args,
                                 validation_labels,
                                 input_size=input_size,
                                 batch_size=args.validation_batch_size,
-                                fn=extract_fn))
+                                fn=extract_hierarchical_features))
 
     optimizer = setup_optimizer(args)
     nn = get_triplet_lstm_nn(args, optimizer)
@@ -980,7 +981,7 @@ def run_softmax_lstm(args,
                                 validation_labels,
                                 input_size=input_size,
                                 batch_size=args.validation_batch_size,
-                                fn=extract_fn))
+                                fn=extract_hierarchical_features))
 
     nn = get_softmax_lstm_nn(args, optimize=True)
     build_scpd_model(nn)
