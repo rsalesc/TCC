@@ -72,7 +72,7 @@ class TripletLSTM(nn.Module):
             self.cuda()
 
         self.optimizer = optimizer_fn(self.parameters())
-        self.loss = losses.TripletSemihardLoss(self.margin, squared=False)
+        self.loss = losses.TripletSemihardLoss(margin, squared=False)
 
     def forward(self, X):
         cuda = torch.cuda.is_available()
