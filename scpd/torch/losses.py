@@ -101,14 +101,97 @@ def pdist(vectors, squared=False):
     distance_matrix = -2 * vectors.mm(torch.t(vectors)) + vectors.pow(2).sum(dim=1).view(1, -1) + vectors.pow(2).sum(
         dim=1).view(-1, 1)
 
-    error_mask = distance_matrix < 0
+    distance_matrix = F.relu(distance_matrix)
+
+    error_mask = distance_matrix <= 0
     if not squared:
         distance_matrix = (distance_matrix + error_mask.float() * 1e-16).sqrt()
 
     distance_matrix = distance_matrix * (1.0 - error_mask.float())
     n = vectors.size()[0]
-    mask_diagonals = torch.ones_like(distance_matrix) - torch.ones((n,)).cuda().diag()
+    diag = torch.ones((n,))
+    if vectors.is_cuda:
+        diag = diag.cuda()
+    mask_diagonals = torch.ones_like(distance_matrix) - diag.diag()
     return distance_matrix * mask_diagonals
+
+
+def masked_max(data, mask, axis):
+    axis_minimums = torch.min(data, axis, keepdim=True)
+    dif = data - axis_minimums.expand_as(data)
+    masked = torch.max(dif * mask.float(), axis, keepdim=True)
+    return masked + axis_minimums
+
+
+def masked_min(data, mask, axis):
+    axis_maximums = torch.max(data, axis, keepdim=True)
+    dif = data - axis_maximums.expand_as(data)
+    masked = torch.min(dif * mask.float(), axis, keepdim=True)
+    return masked + axis_maximums
+
+
+def triplet_semihard_loss(labels, embeddings, margin=1.0, squared=False):
+    cuda = embeddings.is_cuda
+    if cuda:
+        labels = labels.cuda()
+
+    lshape = labels.size()
+    assert len(lshape) == 1
+
+    labels = labels.view(-1, 1)
+    batch_size = lshape[0]
+
+    pdist_matrix = pdist(embeddings, squared=squared)
+    adjacency = torch.eq(labels, torch.t(labels))
+    adjacency_not = adjacency ^ 1
+
+    pdist_matrix_tile = pdist_matrix.repeat(batch_size, 1)
+    mask = (pdist_matrix_tile >
+            torch.t(pdist_matrix).view(-1, 1).expand_as(pdist_matrix_tile))
+    mask = adjacency_not.repeat(batch_size, 1) & mask
+    mask = mask.float()
+
+    mask_final = torch.sum(mask, 1, keepdim=True) > 0
+    mask_final = torch.t(mask_final.view(batch_size, batch_size))
+
+    adjacency_not = adjacency_not.float()
+
+    negatives_outside = masked_min(pdist_matrix_tile, mask, 1)
+    negatives_outside = torch.t(negatives_outside.view(batch_size, batch_size))
+
+    negatives_inside = masked_max(pdist_matrix, adjacency_not, 1)
+    negatives_inside = negatives_inside.repeat(1, batch_size)
+
+    semihard_negatives = torch.where(mask_final,
+                                     negatives_outside,
+                                     negatives_inside)
+
+    loss_mat = pdist_matrix - semihard_negatives + margin
+
+    diag = torch.ones((batch_size,))
+    if cuda:
+        diag = diag.cuda()
+    diag = diag.diag()
+
+    mask_positives = adjacency.float() - diag
+    num_positives = torch.sum(mask_positives)
+
+    triplet_loss = torch.sum(F.relu(loss_mat * mask_positives))
+    triplet_loss = triplet_loss / num_positives
+
+    return triplet_loss
+
+
+class TripletSemihardLoss(nn.Module):
+    def __init__(self, margin, squared=False):
+        super(TripletSemihardLoss, self).__init__()
+        self.margin = margin
+        self.squared = squared
+
+    def forward(self, embeddings, labels):
+        return triplet_semihard_loss(embeddings, labels,
+                                     margin=self.margin, 
+                                     squared=self.squared)
 
 
 class PairSelector:
@@ -238,8 +321,8 @@ def random_hard_negative(loss_values):
 def semihard_negative(loss_values, margin):
     semihard_negatives = np.where(np.logical_and(
         loss_values < margin, loss_values > 0))[0]
-    return (np.random.choice(semihard_negatives) 
-        if len(semihard_negatives) > 0 else hardest_negative(loss_values))
+    return (np.random.choice(semihard_negatives)
+            if len(semihard_negatives) > 0 else hardest_negative(loss_values))
 
 
 class FunctionNegativeTripletSelector(TripletSelector):

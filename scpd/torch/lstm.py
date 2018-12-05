@@ -72,9 +72,7 @@ class TripletLSTM(nn.Module):
             self.cuda()
 
         self.optimizer = optimizer_fn(self.parameters())
-        self.triplet_selector = losses.SemihardNegativeTripletSelector(
-            margin, not cuda)
-        self.loss = losses.OnlineTripletLoss(margin, self.triplet_selector)
+        self.loss = losses.TripletSemihardLoss(self.margin, squared=False)
 
     def forward(self, X):
         cuda = torch.cuda.is_available()
