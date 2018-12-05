@@ -345,6 +345,14 @@ def crop_or_extend(s, crop_size, pad=0):
     return g
 
 
+def window_or_extend(s, window_size, pad=0):
+    if abs(window_size) > len(s):
+        return crop_or_extend(s, window_size, pad=pad)
+    window_size = abs(window_size)
+    st = np.random.randint(0, len(s) - window_size)
+    return s[st:st + window_size]
+
+
 def extract_cnn_features(source, input_size=None):
     # should be more efficient
     res = encode_text(source.fetch())
@@ -358,11 +366,32 @@ def extract_hierarchical_features(source, input_size=None):
     max_lines, max_chars = input_size
     assert max_lines is not None
     assert max_chars is not None
-    lines = list(
-        map(lambda x: crop_or_extend(encode_text(x), max_chars),
-            source.fetch().splitlines()))
+    lines = [crop_or_extend(encode_text(x), max_chars)
+             for x in source.fetch().splitlines()]
     lines = crop_or_extend(lines, -max_lines, pad=[0] * max_chars)
     return np.array(lines)
+
+
+def _extract_window_hierarchical_features(source, input_size=None, dropout=0.0):
+    assert isinstance(input_size, tuple) and len(input_size) == 2
+    max_lines, max_chars = input_size
+    assert max_lines is not None
+    assert max_chars is not None
+    keep_prob = 1. - dropout
+    lines = [crop_or_extend(encode_text(x), max_chars)
+             for x in source.fetch().splitlines()]
+    lines = window_or_extend(lines, -max_lines, pad=[0] * max_chars)
+    lines = [line for line in lines if np.random.rand() < keep_prob]
+    return np.array(lines)
+
+
+def HierarchicalWindowFeatureExtractor(dropout):
+    def fn(source, input_size=None):
+        return _extract_window_hierarchical_features(source,
+                                                     input_size=input_size,
+                                                     dropout=dropout)
+
+    return fn
 
 
 def fn_author_default(x):
@@ -752,7 +781,6 @@ def get_triplet_lstm_nn(args, optimizer):
         dropout_char=args.dropout_char,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
-        dropout_inter=args.dropout_inter,
         margin=args.margin,
         optimizer=optimizer,
         metric=["eer", "accuracy"])
@@ -765,7 +793,7 @@ def run_triplet_lstm(args,
                      callbacks=[]):
     random.shuffle(training_sources)
     input_size = (args.max_lines, args.max_chars)
-    extract_fn = extract_hierarchical_features
+    extract_fn = HierarchicalWindowFeatureExtractor(args.dropout_inter)
 
     training_generator = CodeForTripletGenerator(
         training_sources,
@@ -918,7 +946,6 @@ def get_softmax_lstm_nn(args, optimize):
         dropout_char=args.dropout_char,
         dropout_line=args.dropout_line,
         dropout_fc=args.dropout_fc,
-        dropout_inter=args.dropout_inter,
         hidden_size=oargs.hidden_size,
         optimizer=optimizer,
         classes=oargs.classes,
@@ -934,7 +961,7 @@ def run_softmax_lstm(args,
     random.shuffle(training_sources)
     random.shuffle(validation_sources)
     input_size = (args.max_lines, args.max_chars)
-    extract_fn = extract_hierarchical_features
+    extract_fn = HierarchicalWindowFeatureExtractor(args.dropout_inter)
 
     training_labels, validation_labels = extract_labels(
         [training_sources, validation_sources],

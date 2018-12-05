@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     validation_labels = extract_labels([validation_sources])[0]
     validation_sequence = nn.CategoricalCodeSequence(
-        validation_sources, validation_labels, input_size=input_size, 
+        validation_sources, validation_labels, input_size=input_size,
         batch_size=args.validation_batch_size, fn=extract_fn)
 
     net = get_triplet_lstm_module(args)
