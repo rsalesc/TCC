@@ -141,9 +141,9 @@ class TripletLSTM(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        return out.detach().numpy(), loss.detach().numpy()
+        return out.detach().cpu().numpy(), loss.detach().cpu().numpy()
 
     def predict_on_batch(self, X):
         with torch.no_grad():
             self.train(mode=False)
-            return self.forward(X).numpy()
+            return self.forward(X).cpu().numpy()
