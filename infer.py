@@ -64,6 +64,7 @@ def argparsing():
     parser.add_argument("--roc-name", default="classifier")
 
     parser.add_argument("--neighbors", default=6, type=int)
+    parser.add_argument("--average", type=int, default=1)
 
     subparsers = parser.add_subparsers(title="models", dest="model")
     subparsers.required = True
@@ -107,7 +108,8 @@ def lstm_logits_infer_batches(args):
     sources = load_dataset(args)
 
     input_size = (xargs.max_lines, xargs.max_chars)
-    extract_fn = nn.extract_hierarchical_features
+    extract_fn = (nn.extract_hierarchical_features if args.average == 1
+                  else nn.HierarchicalWindowFeatureExtractor(0.0))
 
     hot_labels = extract_labels([sources], one_hot=True)[0]
     labels = extract_labels([sources])[0]
@@ -122,7 +124,10 @@ def lstm_logits_infer_batches(args):
     y_pred = []
     for i in range(len(sequence)):
         x, y_true = sequence[i]
-        y_pred.append(net.model.predict_on_batch(x))
+        acc = np.array(0)
+        for j in range(args.average):
+            acc += net.model.predict_on_batch(x)
+        y_pred.append(acc / args.average)
 
     sequence = (
         nn.CategoricalCodeSequence(sources,
@@ -139,7 +144,8 @@ def lstm_knn_infer(args):
     training_sources, test_sources, _ = load_knn_dataset(args)
 
     input_size = (xargs.max_lines, xargs.max_chars)
-    extract_fn = nn.extract_hierarchical_features
+    extract_fn = (nn.extract_hierarchical_features if args.average == 1
+                  else nn.HierarchicalWindowFeatureExtractor(0.0))
 
     training_labels, test_labels = extract_labels([
         training_sources, test_sources])
@@ -160,7 +166,10 @@ def lstm_knn_infer(args):
         y_pred = []
         for i in range(len(sequence)):
             x, y_true = sequence[i]
-            y_pred.extend(net.model.predict_on_batch(x))
+            acc = np.array(0)
+            for j in range(args.average):
+                acc += net.model.predict_on_batch(x)
+            y_pred.extend(acc / args.average)
             labels.extend(y_true)
 
         res.append((np.array(y_pred), np.array(labels)))
@@ -174,7 +183,8 @@ def lstm_embedding_infer_batches(args):
     sources = load_dataset(args)
 
     input_size = (xargs.max_lines, xargs.max_chars)
-    extract_fn = nn.extract_hierarchical_features
+    extract_fn = (nn.extract_hierarchical_features if args.average == 1
+                  else nn.HierarchicalWindowFeatureExtractor(0.0))
 
     labels = extract_labels([sources])[0]
     sequence = (
@@ -187,7 +197,10 @@ def lstm_embedding_infer_batches(args):
     y_pred = []
     for i in range(len(sequence)):
         x, y_true = sequence[i]
-        y_pred.append(net.model.predict_on_batch(x))
+        acc = np.array(0)
+        for j in range(args.average):
+            acc += net.model.predict_on_batch(x)
+        y_pred.append(acc / args.average)
 
     return sequence, y_pred
 
