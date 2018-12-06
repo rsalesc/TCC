@@ -551,6 +551,7 @@ def argparsing():
     cnn_triplet.add_argument("--extra-samples", type=int, default=0)
     cnn_triplet.set_defaults(func=run_triplet_cnn)
     cnn_triplet.set_defaults(emb_func=get_embedding_triplet_cnn)
+    cnn_triplet.set_defaults(metric_mode="min")
 
     cnn_contrastive.add_argument("--margin", required=True, type=float)
     cnn_contrastive.add_argument("--batch-size", type=int, default=32)
@@ -827,7 +828,7 @@ def run_triplet_lstm(args,
     om = OfflineMetrics(
         on_epoch=[val_metric],
         validation_data=validation_sequence,
-        best_metric="val_complete_loss")
+        best_metric="val_complete_eer")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
@@ -907,7 +908,7 @@ def run_triplet_cnn(args,
     om = OfflineMetrics(
         on_epoch=[val_metric],
         validation_data=validation_sequence,
-        best_metric="val_complete_loss")
+        best_metric="val_complete_eer")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
