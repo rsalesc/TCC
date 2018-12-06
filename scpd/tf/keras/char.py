@@ -29,7 +29,6 @@ class SimilarityCharCNN(BaseModel):
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
-        assert optimizer is not None
         if not isinstance(metric, list):
             metric = [metric]
         self._input_size = input_size
