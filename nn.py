@@ -547,7 +547,8 @@ def argparsing():
     cnn.add_argument("--embedding-size", type=int, default=128)
     cnn.add_argument("--dropout-conv", type=float, default=0.0)
     cnn.add_argument("--dropout-fc", type=float, default=0.0)
-    cnn.add_argument("--input-crop", type=int, default=768)
+    cnn.add_argument("--input-min", type=int, default=100)
+    cnn.add_argument("--input-max", type=int, default=2000)
 
     cnn_triplet.add_argument("--margin", required=True, type=float)
     cnn_triplet.add_argument("--classes-per-batch", type=int, default=24)
@@ -851,7 +852,7 @@ def run_contrastive_cnn(args,
 
 def get_embedding_triplet_cnn(args):
     ex = NeuralFeatureExtractor(
-        extract_cnn_features, input_size=args.input_crop)
+        extract_cnn_features, input_size=(args.input_min, args.input_max))
     sources = load_embedding_dataset(args)
     labels = list(map(lambda x: [x.author()], sources))
     x = ex.extract_batch_x(sources)
@@ -877,7 +878,7 @@ def run_triplet_cnn(args,
                     load=None,
                     callbacks=[]):
     random.shuffle(training_sources)
-    input_size = args.input_crop
+    input_size = (args.input_min, args.input_max)
     extract_fn = extract_cnn_features
 
     training_generator = CodeForTripletGenerator(

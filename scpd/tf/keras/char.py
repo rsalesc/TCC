@@ -52,7 +52,7 @@ class SimilarityCharCNN(BaseModel):
                             metric_margin or margin, metric=x), metric))
 
     def input_shape(self):
-        return (self._input_size, )
+        return (None, )
 
     def loader_objects(self):
         res = {"tf": tf, "contrastive_loss": self._contrastive_loss_fn}
@@ -83,8 +83,7 @@ class SimilarityCharCNN(BaseModel):
         input = Input(shape=self.input_shape())
         x = Embedding(
             self._alphabet_size,
-            self._embedding_size,
-            input_length=self._input_size)(input)
+            self._embedding_size)(input)
 
         x = self.ConvLayer(256, 7)(x)
         x = MaxPooling1D(3)(x)
