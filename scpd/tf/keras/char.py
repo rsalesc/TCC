@@ -14,6 +14,12 @@ from .base import BaseModel
 from .metrics import TripletOnKerasMetric, ContrastiveOnKerasMetric
 
 
+def kmax_pool(ksize):
+    def fn(x):
+        return tf.top_k(x, k=ksize, sorted=False)
+    return fn
+
+
 class SimilarityCharCNN(BaseModel):
     def __init__(self,
                  input_size,
@@ -91,7 +97,7 @@ class SimilarityCharCNN(BaseModel):
         x = self.ConvLayer(256, 3)(x)
 
         x = self.ConvLayer(256, 3)(x)
-        x = MaxPooling1D(3)(x)
+        x = Lambda(kmax_pool(5))(x)
 
         x = Flatten()(x)
         x = BatchNormalization()(x)
