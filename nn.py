@@ -357,7 +357,7 @@ def extract_cnn_features(source, input_size=None):
     # should be more efficient
     res = encode_text(source.fetch())
     if input_size is not None:
-        res = crop_or_extend(res, -input_size)
+        res = window_or_extend(res, -input_size)
     return np.array(res)
 
 
@@ -784,7 +784,7 @@ def get_triplet_lstm_nn(args, optimizer):
         dropout_fc=args.dropout_fc,
         margin=args.margin,
         optimizer=optimizer,
-        metric=["eer", "accuracy"])
+        metric=["eer"])
 
 
 def run_triplet_lstm(args,
@@ -854,6 +854,19 @@ def get_embedding_triplet_cnn(args):
     return x, labels, ["author"]
 
 
+def get_triplet_cnn_nn(args, optimizer):
+    return TripletCharCNN(
+        args.input_crop,
+        len(ALPHABET) + 1,
+        embedding_size=args.char_embedding_size,
+        output_size=args.embedding_size,
+        dropout_conv=args.dropout_conv,
+        dropout_fc=args.dropout_fc,
+        margin=args.margin,
+        optimizer=optimizer,
+        metric=["eer"])
+
+
 def run_triplet_cnn(args,
                     training_sources,
                     validation_sources,
@@ -867,43 +880,33 @@ def run_triplet_cnn(args,
         training_sources,
         classes_per_batch=args.classes_per_batch,
         samples_per_class=args.samples_per_class,
+        extra_negatives=args.extra_samples,
         input_size=input_size,
         fn=extract_fn)
 
-    validation_pairs = make_pairs(validation_sources, k1=1000, k2=1000)
-    random.shuffle(validation_pairs)
-
-    validation_sequence = FlatCodePairSequence(
-        validation_pairs,
-        batch_size=args.validation_batch_size,
-        input_size=input_size,
-        fn=extract_fn)
+    validation_labels = extract_labels([validation_sources])[0]
+    validation_sequence = (
+        CategoricalCodeSequence(validation_sources,
+                                validation_labels,
+                                input_size=input_size,
+                                batch_size=args.validation_batch_size,
+                                fn=extract_fn))
 
     optimizer = setup_optimizer(args)
-    nn = TripletCharCNN(
-        args.input_crop,
-        len(ALPHABET) + 1,
-        embedding_size=args.char_embedding_size,
-        output_size=args.embedding_size,
-        dropout_conv=args.dropout_conv,
-        dropout_fc=args.dropout_fc,
-        margin=args.margin,
-        optimizer=optimizer,
-        metric=["precision", "recall", "accuracy"])
+    nn = get_triplet_cnn_nn(args, optimizer)
 
     build_scpd_model(nn)
     nn.compile()
     print(nn.model.summary())
 
-    val_threshold_metric = FlatPairValidationMetric(
+    val_metric = CompletePairValidationMetric(
         np.linspace(0.0, 2.0, args.threshold_granularity),
-        id="thresholded",
-        metric=["precision", "accuracy", "recall"],
-        argmax="accuracy")
+        id="complete",
+        metric=["eer"])
     om = OfflineMetrics(
-        on_epoch=[val_threshold_metric],
+        on_epoch=[val_metric],
         validation_data=validation_sequence,
-        best_metric="val_thresholded_accuracy")
+        best_metric="val_complete_loss")
     tb = setup_tensorboard(args, nn)
 
     nn.train(
