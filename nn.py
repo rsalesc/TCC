@@ -847,7 +847,7 @@ def run_contrastive_cnn(args,
 
 def get_embedding_triplet_cnn(args):
     ex = NeuralFeatureExtractor(
-        extract_cnn_features, input_size=(args.input_min, args.input_max))
+        extract_cnn_features, input_size=args.input_crop)
     sources = load_embedding_dataset(args)
     labels = list(map(lambda x: [x.author()], sources))
     x = ex.extract_batch_x(sources)
@@ -873,7 +873,7 @@ def run_triplet_cnn(args,
                     load=None,
                     callbacks=[]):
     random.shuffle(training_sources)
-    input_size = (args.input_min, args.input_max)
+    input_size = args.input_crop
     extract_fn = extract_cnn_features
 
     training_generator = CodeForTripletGenerator(
