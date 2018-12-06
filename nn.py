@@ -565,12 +565,12 @@ def argparsing():
     cnn_triplet.add_argument("--margin", required=True, type=float)
     cnn_triplet.add_argument("--classes-per-batch", type=int, default=24)
     cnn_triplet.add_argument("--samples-per-class", type=int, default=8)
+    cnn_triplet.add_argument("--extra-samples", type=int, default=0)
     cnn_triplet.set_defaults(func=run_triplet_cnn)
     cnn_triplet.set_defaults(emb_func=get_embedding_triplet_cnn)
 
     cnn_contrastive.add_argument("--margin", required=True, type=float)
     cnn_contrastive.add_argument("--batch-size", type=int, default=32)
-    cnn_contrastive.add_argument("--extra-samples", type=int, default=0)
     cnn_contrastive.set_defaults(func=run_contrastive_cnn)
 
     # Code LSTM
