@@ -861,7 +861,6 @@ def get_embedding_triplet_cnn(args):
 
 def get_triplet_cnn_nn(args, optimizer):
     return TripletCharCNN(
-        args.input_crop,
         len(ALPHABET) + 1,
         embedding_size=args.char_embedding_size,
         output_size=args.embedding_size,

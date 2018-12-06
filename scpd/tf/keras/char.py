@@ -22,7 +22,6 @@ def kmax_pool(ksize):
 
 class SimilarityCharCNN(BaseModel):
     def __init__(self,
-                 input_size,
                  alphabet_size,
                  embedding_size,
                  output_size,
@@ -38,7 +37,6 @@ class SimilarityCharCNN(BaseModel):
         assert optimizer is not None
         if not isinstance(metric, list):
             metric = [metric]
-        self._input_size = input_size
         self._alphabet_size = alphabet_size
         self._dropout_conv = dropout_conv
         self._dropout_fc = dropout_fc
