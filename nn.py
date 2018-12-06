@@ -570,6 +570,7 @@ def argparsing():
 
     cnn_contrastive.add_argument("--margin", required=True, type=float)
     cnn_contrastive.add_argument("--batch-size", type=int, default=32)
+    cnn_contrastive.add_argument("--extra-samples", type=int, default=0)
     cnn_contrastive.set_defaults(func=run_contrastive_cnn)
 
     # Code LSTM
