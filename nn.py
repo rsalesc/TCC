@@ -358,9 +358,9 @@ def extract_cnn_features(source, input_size=None):
     min_chars, max_chars = input_size
     # should be more efficient
     res = encode_text(source.fetch())
-    if len(res) >= min_chars:
+    if len(res) > max_chars:
         res = window_or_extend(res, max_chars, pad=[0])
-    else:
+    elif len(res) < min_chars:
         res = crop_or_extend(res, min_chars, pad=[0]*min_chars)
     return np.array(res)
 
