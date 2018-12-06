@@ -78,6 +78,9 @@ def argparsing():
 
     # Char CNN
     cnn = subparsers.add_parser("cnn")
+    cnn.set_defaults(get_nn=lambda x:
+                     nn.get_triplet_cnn_nn(x, get_dummy_optimizer()))
+    cnn.set_defaults(infer_fn=cnn_embedding_infer_batches)
 
     # Code LSTM
     lstm = subparsers.add_parser("lstm")
@@ -185,6 +188,33 @@ def lstm_embedding_infer_batches(args):
     input_size = (xargs.max_lines, xargs.max_chars)
     extract_fn = (nn.extract_hierarchical_features if args.average == 1
                   else nn.HierarchicalWindowFeatureExtractor(0.0))
+
+    labels = extract_labels([sources])[0]
+    sequence = (
+        nn.CategoricalCodeSequence(sources,
+                                   labels,
+                                   input_size=input_size,
+                                   batch_size=args.batch_size,
+                                   fn=extract_fn))
+
+    y_pred = []
+    for i in range(len(sequence)):
+        x, y_true = sequence[i]
+        acc = 0.0
+        for j in range(args.average):
+            acc += net.model.predict_on_batch(x)
+        y_pred.append(acc / args.average)
+
+    return sequence, y_pred
+
+
+def cnn_embedding_infer_batches(args):
+    xargs = load_xargs(args.model_path)
+    net = load_nn(args)
+    sources = load_dataset(args)
+
+    input_size = xargs.input_crop
+    extract_fn = (nn.extract_cnn_features)
 
     labels = extract_labels([sources])[0]
     sequence = (
