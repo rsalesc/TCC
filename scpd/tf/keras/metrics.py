@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
-import common
+
+from . import common
 
 
 def safe_nanmax(x):

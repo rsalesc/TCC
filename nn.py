@@ -365,6 +365,18 @@ def extract_cnn_features(source, input_size=None):
     return np.array(res)
 
 
+def extract_cnn_val_features(source, input_size=None):
+    assert input_size is not None
+    min_chars, max_chars = input_size
+    # should be more efficient
+    res = encode_text(source.fetch())
+    if len(res) >= min_chars:
+        res = res[-max_chars:]
+    else:
+        res = crop_or_extend(res, min_chars, pad=[0]*min_chars)
+    return np.array(res)
+
+
 def extract_hierarchical_features(source, input_size=None):
     assert isinstance(input_size, tuple) and len(input_size) == 2
     max_lines, max_chars = input_size
@@ -894,7 +906,7 @@ def run_triplet_cnn(args,
                                 validation_labels,
                                 input_size=input_size,
                                 batch_size=args.validation_batch_size,
-                                fn=extract_fn))
+                                fn=extract_cnn_val_features))
 
     optimizer = setup_optimizer(args)
     nn = get_triplet_cnn_nn(args, optimizer)
