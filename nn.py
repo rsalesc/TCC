@@ -354,26 +354,10 @@ def window_or_extend(s, window_size, pad=0):
 
 
 def extract_cnn_features(source, input_size=None):
-    assert input_size is not None
-    min_chars, max_chars = input_size
     # should be more efficient
     res = encode_text(source.fetch())
-    if len(res) > max_chars:
-        res = window_or_extend(res, max_chars, pad=[0])
-    elif len(res) < min_chars:
-        res = crop_or_extend(res, min_chars, pad=[0]*min_chars)
-    return np.array(res)
-
-
-def extract_cnn_val_features(source, input_size=None):
-    assert input_size is not None
-    min_chars, max_chars = input_size
-    # should be more efficient
-    res = encode_text(source.fetch())
-    if len(res) >= min_chars:
-        res = res[-max_chars:]
-    else:
-        res = crop_or_extend(res, min_chars, pad=[0]*min_chars)
+    if input_size is not None:
+        res = crop_or_extend(res, -input_size)
     return np.array(res)
 
 
@@ -559,13 +543,11 @@ def argparsing():
     cnn.add_argument("--embedding-size", type=int, default=128)
     cnn.add_argument("--dropout-conv", type=float, default=0.0)
     cnn.add_argument("--dropout-fc", type=float, default=0.0)
-    cnn.add_argument("--input-min", type=int, default=100)
-    cnn.add_argument("--input-max", type=int, default=2000)
+    cnn.add_argument("--input-crop", type=int, default=768)
 
     cnn_triplet.add_argument("--margin", required=True, type=float)
     cnn_triplet.add_argument("--classes-per-batch", type=int, default=24)
     cnn_triplet.add_argument("--samples-per-class", type=int, default=8)
-    cnn_triplet.add_argument("--extra-samples", type=int, default=0)
     cnn_triplet.set_defaults(func=run_triplet_cnn)
     cnn_triplet.set_defaults(emb_func=get_embedding_triplet_cnn)
 
@@ -874,6 +856,7 @@ def get_embedding_triplet_cnn(args):
 
 def get_triplet_cnn_nn(args, optimizer):
     return TripletCharCNN(
+        args.input_crop,
         len(ALPHABET) + 1,
         embedding_size=args.char_embedding_size,
         output_size=args.embedding_size,
@@ -907,7 +890,7 @@ def run_triplet_cnn(args,
                                 validation_labels,
                                 input_size=input_size,
                                 batch_size=args.validation_batch_size,
-                                fn=extract_cnn_val_features))
+                                fn=extract_fn))
 
     optimizer = setup_optimizer(args)
     nn = get_triplet_cnn_nn(args, optimizer)

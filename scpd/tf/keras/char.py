@@ -14,15 +14,9 @@ from .base import BaseModel
 from .metrics import TripletOnKerasMetric, ContrastiveOnKerasMetric
 
 
-def kmax_pool(ksize):
-    def fn(x):
-        x = tf.transpose(x, perm=[0, 2, 1])
-        return tf.nn.top_k(x, k=ksize, sorted=False)[0]
-    return fn
-
-
 class SimilarityCharCNN(BaseModel):
     def __init__(self,
+                 input_size,
                  alphabet_size,
                  embedding_size,
                  output_size,
@@ -38,6 +32,7 @@ class SimilarityCharCNN(BaseModel):
         assert optimizer is not None
         if not isinstance(metric, list):
             metric = [metric]
+        self._input_size = input_size
         self._alphabet_size = alphabet_size
         self._dropout_conv = dropout_conv
         self._dropout_fc = dropout_fc
@@ -51,7 +46,7 @@ class SimilarityCharCNN(BaseModel):
                             metric_margin or margin, metric=x), metric))
 
     def input_shape(self):
-        return (None, )
+        return (self._input_size, )
 
     def loader_objects(self):
         res = {"tf": tf, "contrastive_loss": self._contrastive_loss_fn}
@@ -82,7 +77,8 @@ class SimilarityCharCNN(BaseModel):
         input = Input(shape=self.input_shape())
         x = Embedding(
             self._alphabet_size,
-            self._embedding_size)(input)
+            self._embedding_size,
+            input_length=self._input_size)(input)
 
         x = self.ConvLayer(256, 7)(x)
         x = MaxPooling1D(3)(x)
@@ -95,7 +91,7 @@ class SimilarityCharCNN(BaseModel):
         x = self.ConvLayer(256, 3)(x)
 
         x = self.ConvLayer(256, 3)(x)
-        x = Lambda(kmax_pool(5))(x)
+        x = MaxPooling1D(3)(x)
 
         x = Flatten()(x)
         x = BatchNormalization()(x)
