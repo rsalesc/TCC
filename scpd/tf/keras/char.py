@@ -16,7 +16,7 @@ from .metrics import TripletOnKerasMetric, ContrastiveOnKerasMetric
 
 def kmax_pool(ksize):
     def fn(x):
-        return tf.nn.top_k(x, k=ksize, sorted=False)
+        return tf.nn.top_k(x, k=ksize, sorted=False)[0]
     return fn
 
 
