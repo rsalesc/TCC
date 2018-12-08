@@ -138,7 +138,7 @@ def lstm_logits_infer_batches(args):
                                    input_size=input_size,
                                    batch_size=args.batch_size,
                                    fn=extract_fn))
-    return sequence, y_pred
+    return sequence, np.array(y_pred)
 
 
 def lstm_knn_infer(args):
@@ -205,7 +205,7 @@ def lstm_embedding_infer_batches(args):
             acc += net.model.predict_on_batch(x)
         y_pred.append(acc / args.average)
 
-    return sequence, y_pred
+    return sequence, np.array(y_pred)
 
 
 def cnn_embedding_infer_batches(args):
@@ -232,7 +232,7 @@ def cnn_embedding_infer_batches(args):
             acc += net.model.predict_on_batch(x)
         y_pred.append(acc / args.average)
 
-    return sequence, y_pred
+    return sequence, np.array(y_pred)
 
 
 def load_knn_dataset(args):

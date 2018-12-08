@@ -593,7 +593,7 @@ def argparsing():
                               action="store_true")
     lstm_softmax.set_defaults(func=run_softmax_lstm)
     lstm_softmax.set_defaults(emb_func=None)
-    lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
+    #lstm_softmax.set_defaults(dataset_func=load_gcj_easiest_dataset)
     lstm_softmax.set_defaults(margin=0.2)
 
     return parser.parse_args()

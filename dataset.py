@@ -5,6 +5,10 @@ from scpd.datasets import CodejamDisjointDatasetBuilder as CodejamBuilder
 from scpd.datasets import CodejamEasiestDatasetBuilder as CodejamEasiestBuilder
 from scpd.datasets import CodejamDescriptor, gcj_codes_plugin
 
+from scpd import utils
+import pickle
+import os
+
 
 def newest():
     descriptors = [
@@ -20,6 +24,35 @@ def newest():
 
     builder = Builder(descriptors, download=True, plugins=plugins)
     return builder.extract()
+
+
+def split_newest():
+    descriptors = [Descriptor("test", None, None, path=".cache/test.pkl")]
+
+    builder = Builder(descriptors, download=False, plugins=list())
+
+    sources = builder.fetch_datasets()[0]
+
+    author_dict = {}
+    for source in sources:
+        if source.author() not in author_dict:
+            author_dict[source.author()] = []
+        author_dict[source.author()].append(source)
+
+    training = []
+    test = []
+
+    for sources in author_dict.values():
+        training.extend(sources[:-1])
+        test.extend(sources[-1:])
+
+    path = ".cache/test.f1.pkl"
+    with utils.opens(path, "wb") as f:
+        pickle.dump(training, f)
+
+    path = ".cache/test.f2.pkl"
+    with utils.opens(path, "wb") as f:
+        pickle.dump(test, f)
 
 
 def oldest():
@@ -122,4 +155,4 @@ def preloaded_gcj_random(paths, caide=False):
 
 
 if __name__ == "__main__":
-    gcj_tiny()
+    split_newest()
