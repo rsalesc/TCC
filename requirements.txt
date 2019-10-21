@@ -28,6 +28,6 @@ tensorboard==1.8.0
 termcolor==1.1.0
 tqdm==4.23.3
 urllib3==1.22
-Werkzeug==0.14.1
+Werkzeug==0.15.3
 xgboost==0.71
 yapf==0.22.0
