@@ -11,7 +11,7 @@ grpcio==1.12.1
 h5py==2.8.0
 html5lib==0.9999999
 idna==2.6
-lxml==4.2.1
+lxml==4.6.2
 Markdown==2.6.11
 numpy==1.14.3
 pandas==0.23.0
