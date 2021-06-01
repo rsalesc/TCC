@@ -27,7 +27,7 @@ sklearn-pandas==1.6.0
 tensorboard==1.8.0
 termcolor==1.1.0
 tqdm==4.23.3
-urllib3==1.22
+urllib3==1.26.5
 Werkzeug==0.14.1
 xgboost==0.71
 yapf==0.22.0
