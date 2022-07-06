@@ -9,7 +9,7 @@ gast==0.2.0
 graphviz==0.8.3
 grpcio==1.12.1
 h5py==2.8.0
-html5lib==0.9999999
+html5lib==0.999999999
 idna==2.6
 lxml==4.2.1
 Markdown==2.6.11
